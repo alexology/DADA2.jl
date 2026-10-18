@@ -1,0 +1,7 @@
+upstream/
+*.cov
+*.mem
+benchmark/results.tsv
+validation/generated/
+Manifest.toml
+dist/

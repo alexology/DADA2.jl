@@ -1,0 +1,85 @@
+{
+    "cpu":  "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz",
+    "physical_cores":  6,
+    "logical_processors":  12,
+    "operating_system":  "Microsoft Windows 11 Home",
+    "os_version":  "10.0.26300",
+    "julia_version":  "julia version 1.12.2",
+    "r_versions":  [
+                       "R 4.5.0",
+                       "dada2 1.36.0"
+                   ],
+    "thread_counts":  [
+                          1,
+                          4
+                      ],
+    "warm_repetitions":  5,
+    "first_calls":  10,
+    "total_measurements":  60,
+    "blas_thread_setting":  1,
+    "execution_order":  [
+                            "R_1",
+                            "Julia_1",
+                            "R_4",
+                            "Julia_4"
+                        ],
+    "timing":  "Wall time; GC outside timed pipeline. First script timing excludes interpreter startup and package installation/precompilation.",
+    "hashes":  [
+                   {
+                       "path":  "benchmark/mock_timing.jl",
+                       "sha256":  "d22c8e54cc45c180908bff3ad393eb407c19defbc36a5607661bf775ca88b2b0"
+                   },
+                   {
+                       "path":  "benchmark/mock_timing.R",
+                       "sha256":  "29d2f0f3e965eac6ff8e23b4aa3e3d578132410bbf19e0d42ca98a2939c839c8"
+                   },
+                   {
+                       "path":  "benchmark/mock_timing_summary.R",
+                       "sha256":  "3326ca7a41e2fa59afef5ca8c0554cef1db730c1a9897157fe805aa398568ff4"
+                   },
+                   {
+                       "path":  "scripts/mock-timing.ps1",
+                       "sha256":  "01caeebb0408242fe58cfbb3d13f656196099eb1af341cb803e649ca56870981"
+                   },
+                   {
+                       "path":  "src/inference.jl",
+                       "sha256":  "4cebbfcc2fc6acb17baf36843c88cde1a53e588f4c2cdef78bbc7a9456d99bf5"
+                   },
+                   {
+                       "path":  "src/alignment.jl",
+                       "sha256":  "ea82d3ea7cc77a032473bc18b6ba68570c0ced4e8114bb90f38c21b8f6494ade"
+                   },
+                   {
+                       "path":  "src/fastq.jl",
+                       "sha256":  "c69c2b8977a338b6019876d118c8a5672345b09334984e54fad3f8e201a68d6e"
+                   },
+                   {
+                       "path":  "src/community.jl",
+                       "sha256":  "6c2bf13956fe14d716676ab63d815e625d186ecbf423ff63176d926e354db5fe"
+                   },
+                   {
+                       "path":  "Project.toml",
+                       "sha256":  "874a1f1c2b8eef44f2c48a9ff878762ccb47df77f947d4b4a400921a06c7bd7e"
+                   },
+                   {
+                       "path":  "validation/generated/public/Mock_S280_L001_R1_001.fastq",
+                       "sha256":  "f727a29e8452d3724a38bd0271a9dd103752fc94105590200f14481309cb8c7e"
+                   },
+                   {
+                       "path":  "validation/generated/public/Mock_S280_L001_R2_001.fastq",
+                       "sha256":  "2dc7fa7e97d337d18e1995ff8612885eee3f9434a2e0344a1f8adea04f4f6725"
+                   },
+                   {
+                       "path":  "validation/generated/public/mock_errF.tsv",
+                       "sha256":  "70bbc40fc20d9f3557483058c3ea4e9d2af235c16945e0cd73b048a4a2f80d49"
+                   },
+                   {
+                       "path":  "validation/generated/public/mock_errR.tsv",
+                       "sha256":  "41235038f617c73d9920046f506acf8fce14327c6ce594899dc986bd801160bf"
+                   },
+                   {
+                       "path":  "validation/generated/public/r_mock.tsv",
+                       "sha256":  "1e8032c884903daaf85dc38857bc5f3b9f2b46ec8749e5de4c13e7a0827454ce"
+                   }
+               ]
+}

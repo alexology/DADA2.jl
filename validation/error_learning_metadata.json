@@ -1,0 +1,701 @@
+{
+    "package_version":  "0.3.0",
+    "julia_version":  "julia version 1.12.2",
+    "r_versions":  [
+                       "R 4.5.0",
+                       "dada2 1.36.0",
+                       "Quadratic weighted LOESS, span 0.75; direct surface and default interpolated surface."
+                   ],
+    "seeds":  [
+                  11,
+                  23,
+                  37,
+                  51,
+                  71
+              ],
+    "cases":  30,
+    "methods":  7,
+    "measurements":  210,
+    "source_hashes":  [
+                          {
+                              "path":  "Project.toml",
+                              "sha256":  "874a1f1c2b8eef44f2c48a9ff878762ccb47df77f947d4b4a400921a06c7bd7e"
+                          },
+                          {
+                              "path":  "src/DADA2.jl",
+                              "sha256":  "2bfe26d945e230e688b28cb68473d379c3cc2e48b8b13eecf8550f2311465cec"
+                          },
+                          {
+                              "path":  "src/inference.jl",
+                              "sha256":  "4cebbfcc2fc6acb17baf36843c88cde1a53e588f4c2cdef78bbc7a9456d99bf5"
+                          },
+                          {
+                              "path":  "src/fastq.jl",
+                              "sha256":  "c69c2b8977a338b6019876d118c8a5672345b09334984e54fad3f8e201a68d6e"
+                          },
+                          {
+                              "path":  "src/types.jl",
+                              "sha256":  "113936a37d4d6c195180044e7438aa6ec7c4849b119679828f3da1944599e638"
+                          },
+                          {
+                              "path":  "src/alignment.jl",
+                              "sha256":  "ea82d3ea7cc77a032473bc18b6ba68570c0ced4e8114bb90f38c21b8f6494ade"
+                          },
+                          {
+                              "path":  "src/community.jl",
+                              "sha256":  "6c2bf13956fe14d716676ab63d815e625d186ecbf423ff63176d926e354db5fe"
+                          },
+                          {
+                              "path":  "src/taxonomy.jl",
+                              "sha256":  "8d941aa2647a992d4812c7ff63082026a8bdc8b380dd1f8674bb6fdc8c2b1f0c"
+                          },
+                          {
+                              "path":  "validation/error_learning_evaluate.jl",
+                              "sha256":  "29c5437d41d8bcef652e5c331763daaa4b9cad4988f0b2fb7c432e5133ebeb70"
+                          },
+                          {
+                              "path":  "validation/error_learning_mock.jl",
+                              "sha256":  "8f71faa6ed2f78966187a9baa3da47b785617777fecbdfc7e23743565da2eb22"
+                          },
+                          {
+                              "path":  "validation/error_learning_summary.R",
+                              "sha256":  "1a7a3c806a103256b2c0b67c764027b122858bd248fd4c27e6b9f5057adac283"
+                          },
+                          {
+                              "path":  "validation/error_smoothing_fixture.jl",
+                              "sha256":  "951b8e78f0230689e4ff33c5d76e1a8ee6a1b409da19ce163ef7702bdb7b6529"
+                          },
+                          {
+                              "path":  "validation/error_smoothing_reference.R",
+                              "sha256":  "6b9a08664367e373c2b22fe7a37c7cbc69282eb7d931847dafa04558e039bd86"
+                          },
+                          {
+                              "path":  "test/error_learning.jl",
+                              "sha256":  "e879f01d3a9e897ff4fc7998672d39dac1796398c006cf48e27d7a68ba8eaa43"
+                          },
+                          {
+                              "path":  "scripts/error-learning-metadata.ps1",
+                              "sha256":  "000ebcc1c71817f6f7b89515da18b10127a1ce173a78f72a96825af4d3bcf667"
+                          },
+                          {
+                              "path":  "examples/pipeline.jl",
+                              "sha256":  "d3293ec64495c9babd3d59181f555535d67c37dc8f1006413ff98b7bb4eb75bf"
+                          }
+                      ],
+    "simulation_input_hashes":  [
+                                    {
+                                        "path":  "validation/generated/science/no_errors_11/reads.fastq",
+                                        "sha256":  "f9fa5ca75adaf983c87a84d353d1d5fed02a67b5b149878e9071c13926b12d2a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_11/truth.tsv",
+                                        "sha256":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_11/oracle.tsv",
+                                        "sha256":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_11/r_errors.tsv",
+                                        "sha256":  "6695d742d9c84a5ce2ddc92486b1b406b85b59d4274367121a0ff50178923884"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_11/r_learned.tsv",
+                                        "sha256":  "990911a0c7b801dc371826eaff839cc260ebf357fbaba9e399bbf270dd694c0b"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_23/reads.fastq",
+                                        "sha256":  "134963294e0f3572bfe49cfdb9099ea2d25f4698256dc07aef6d763f0c2ea3b7"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_23/truth.tsv",
+                                        "sha256":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_23/oracle.tsv",
+                                        "sha256":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_23/r_errors.tsv",
+                                        "sha256":  "ac8c18b560dfe3fd9504a5c0486e98470665b6640e4a35590a242d8a012d0f37"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_23/r_learned.tsv",
+                                        "sha256":  "9a44ca37d1fdbb61984efda436f21824c4ff7f313decec0cc91476006c047fbc"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_37/reads.fastq",
+                                        "sha256":  "567559062bacc9b26284d4aa278320f4c197fd62aec04dffac384a06a2c97003"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_37/truth.tsv",
+                                        "sha256":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_37/oracle.tsv",
+                                        "sha256":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_37/r_errors.tsv",
+                                        "sha256":  "02069f253656f381c8f280ddb65ffb45cf8bfbed717d8f534a6a130f74e49bf7"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_37/r_learned.tsv",
+                                        "sha256":  "bb96def1f025cd202080de92d6d4dfc87f2d5588c5674723a9b82636c6495677"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_51/reads.fastq",
+                                        "sha256":  "dd1f056dae484a901dc6a0f3187c0a7c530cb82971e9ff8fe7b7145f66e4018f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_51/truth.tsv",
+                                        "sha256":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_51/oracle.tsv",
+                                        "sha256":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_51/r_errors.tsv",
+                                        "sha256":  "ce0242c4b1887be9f704185bf56b9fd6704428b688bded1c591c4033c03f9198"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_51/r_learned.tsv",
+                                        "sha256":  "ce20760b71807749395c8253fe1a215e3013464444d85b7cb4fc0024ac73ba9a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_71/reads.fastq",
+                                        "sha256":  "f660250431ee687673fbd03de09150277a7d87deab057c70f424d1e8123a7853"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_71/truth.tsv",
+                                        "sha256":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_71/oracle.tsv",
+                                        "sha256":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_71/r_errors.tsv",
+                                        "sha256":  "15cbd954f620cda330654ed559bcdf7ef4b9c4532f160a2b6fd4040f337c4a18"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/no_errors_71/r_learned.tsv",
+                                        "sha256":  "6a4b07df20a90ce0512d33eb791f25f6e355a6dd0380aefb1f03c4c83449ea7f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_11/reads.fastq",
+                                        "sha256":  "2e978b3284835bf66508209009bdcdfd7cfee8f0a181e2343e1b82681673eb5d"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_11/truth.tsv",
+                                        "sha256":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_11/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_11/r_errors.tsv",
+                                        "sha256":  "c97732e2b1327d104da5b713898a8c8bac639abd3755f5adf40587540dcbdabe"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_11/r_learned.tsv",
+                                        "sha256":  "c704045ba600d2e022bbc84bc0e7ec95322ba078e6c656a697b666e770f561f4"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_23/reads.fastq",
+                                        "sha256":  "34b50c2cc130f4cca625d461129c5109d112ec6b4adf3bd51116adbed2dc8aa0"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_23/truth.tsv",
+                                        "sha256":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_23/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_23/r_errors.tsv",
+                                        "sha256":  "a06cd4a40baa264d240fe056eb107ff503c2c710c05196902fe10439dc073fdf"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_23/r_learned.tsv",
+                                        "sha256":  "9a44ca37d1fdbb61984efda436f21824c4ff7f313decec0cc91476006c047fbc"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_37/reads.fastq",
+                                        "sha256":  "688c403f9e458c4049e73019d09efdb87fbbe57adec3a2009a0cbad8d4ff1040"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_37/truth.tsv",
+                                        "sha256":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_37/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_37/r_errors.tsv",
+                                        "sha256":  "884254b307d2b283c85f0a412551d425085e02ef9309fa3dbb5b9798177ad841"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_37/r_learned.tsv",
+                                        "sha256":  "22244686d15acdd7b10c820c418bfc7c52e5578affd4a2327a23698d913f4e6f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_51/reads.fastq",
+                                        "sha256":  "fcc0d9c4ba1027273763abb58a51dd97bf1a7d4d46c49ced623d00a2329478b6"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_51/truth.tsv",
+                                        "sha256":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_51/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_51/r_errors.tsv",
+                                        "sha256":  "ce0bab6d46917daabe156316efeddf81be27efe5b3517b10f68828aceaed8724"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_51/r_learned.tsv",
+                                        "sha256":  "51cfe4cbd8fdb344d4e6e433edbd21ab6e8c953ef0896153f24008883a9fffba"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_71/reads.fastq",
+                                        "sha256":  "7f87eb0acaa50489c5ff2b1632f0916ba94b69313fd1d343d43f26bcb20007c6"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_71/truth.tsv",
+                                        "sha256":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_71/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_71/r_errors.tsv",
+                                        "sha256":  "9f94fdd32b1f8b7ed66638c4de22ce9ab1d8df991f1bdf1c4af03a43576e58f3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/calibrated_71/r_learned.tsv",
+                                        "sha256":  "6a4b07df20a90ce0512d33eb791f25f6e355a6dd0380aefb1f03c4c83449ea7f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_11/reads.fastq",
+                                        "sha256":  "1e9074d4a44bd0776fd1febf00389b5ec235bd37368ab926289dd07e9851bd67"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_11/truth.tsv",
+                                        "sha256":  "668862c93ef70e1fd605713205c8fc538f31d156aedf55f8aa674c1083f31ff6"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_11/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_11/r_errors.tsv",
+                                        "sha256":  "75156df32a3357b3f4575f0f1d1f265e94bdf61d03b3ba253d8db9f306c57c3c"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_11/r_learned.tsv",
+                                        "sha256":  "f312a0d9b6add88d7c65c7a7d255449344f7e0cad4af44a087ebea666416bc5b"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_23/reads.fastq",
+                                        "sha256":  "3b688943399c3a9a79672a448c4919dee18ee85d855bd87ae7459c3ac441ad77"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_23/truth.tsv",
+                                        "sha256":  "4a7ff1a28f713d029152a8b2daa27f886bef2b2b6b05f77e61c6f130cabe90c2"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_23/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_23/r_errors.tsv",
+                                        "sha256":  "4a8b513c0f2e8a346d12d62d0bcb0239d6c6307fb06896df01c543219b43a323"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_23/r_learned.tsv",
+                                        "sha256":  "a00782bb75f3403318d8a8525c3be22b2c77a8c40b2011801a7c4424a78a8849"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_37/reads.fastq",
+                                        "sha256":  "4cb736077d4ffb71d44e5478211b16a6c9b8baae49baffd6b6f6ee137ea0ad5f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_37/truth.tsv",
+                                        "sha256":  "9b4ce024bc81009321e70a25e6599afb468f47f860134ac10dac1644a714cab0"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_37/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_37/r_errors.tsv",
+                                        "sha256":  "8e100878a81d6b5cc470143c491abb2f431031725cfd11e000ff269f572f5e4c"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_37/r_learned.tsv",
+                                        "sha256":  "80593884ceb01e177b719c6a6385c0c1d5b121b8fcb984844b9cb43b42d23928"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_51/reads.fastq",
+                                        "sha256":  "7f8fb54b4c9cb87c0c32b4750dea15e98ad53dae428c91edd58e114ca0239404"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_51/truth.tsv",
+                                        "sha256":  "e6b38ef5fe81eeae64799973db0c64b98b81390cce6eb59bec3152ef49744e2c"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_51/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_51/r_errors.tsv",
+                                        "sha256":  "4ffa8512c473db75a6dacde99ea8f2e7922b7f82d43b4509c3003dde595a7d1e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_51/r_learned.tsv",
+                                        "sha256":  "dd7de114b479fea6f9ed4d8bd4ecf3abb7ca55d3dafa3e9b761b6d9e7f299865"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_71/reads.fastq",
+                                        "sha256":  "80f90f998da167eb46a385db6b84ac9140be6fa4d73cf432f5dba54ef329fc98"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_71/truth.tsv",
+                                        "sha256":  "6cb5c78d54172297ae5d0a303cdfaf9cfd720c01c1a51c09b180b550cd7e8076"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_71/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_71/r_errors.tsv",
+                                        "sha256":  "9509f2061db65ce59b02fdc76877c891c840fdd0628f1f2183dbf1402e85e092"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/rare_snv_71/r_learned.tsv",
+                                        "sha256":  "a6f90e64a37ce6c200a812334b368e6987900210dac400700e2880678953bb09"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_11/reads.fastq",
+                                        "sha256":  "609fefd23a6b65fc6a2e3361a3d25595f8f5f93f8e5d2be5c7efa5a5f72a3252"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_11/truth.tsv",
+                                        "sha256":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_11/oracle.tsv",
+                                        "sha256":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_11/r_errors.tsv",
+                                        "sha256":  "e4c449f889c8602d3ddffa5f7ded7e55c50893c20bd1a46b49f7f17a7ec8c9e7"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_11/r_learned.tsv",
+                                        "sha256":  "c704045ba600d2e022bbc84bc0e7ec95322ba078e6c656a697b666e770f561f4"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_23/reads.fastq",
+                                        "sha256":  "0a54c146464254fe48c6f286ccab6eefbf9b9a1573ad01241360d3a50bf6dac6"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_23/truth.tsv",
+                                        "sha256":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_23/oracle.tsv",
+                                        "sha256":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_23/r_errors.tsv",
+                                        "sha256":  "ce597de146369ec1ff41b7d70d852a7cf444deeeb4337076b2d95192a51ad0e5"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_23/r_learned.tsv",
+                                        "sha256":  "bd6626a14fca767149b30f2ccb3032708f159745901fc90dc38918e1ff07fd04"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_37/reads.fastq",
+                                        "sha256":  "da6b0fe9afa4f60b678ee352b301605d7a1b680e71c55889d4e320f88e907909"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_37/truth.tsv",
+                                        "sha256":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_37/oracle.tsv",
+                                        "sha256":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_37/r_errors.tsv",
+                                        "sha256":  "c35c5ed4e7ec6a71ec55b4702e63b04a2e1b3f5af9aef0edcd33a2dc20d81bc6"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_37/r_learned.tsv",
+                                        "sha256":  "e4471279c57c69b5a9118de8e2643cf16a5a206c1df6b6525879c87f38a3a567"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_51/reads.fastq",
+                                        "sha256":  "263a4b05e617c07ff1b8e36a416f4f089924f39ae47bc5ace303405f3d06997f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_51/truth.tsv",
+                                        "sha256":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_51/oracle.tsv",
+                                        "sha256":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_51/r_errors.tsv",
+                                        "sha256":  "7dde3f85d755bd8793a5127a30d8cc936d0c72de322426f92055de6e67574c44"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_51/r_learned.tsv",
+                                        "sha256":  "51cfe4cbd8fdb344d4e6e433edbd21ab6e8c953ef0896153f24008883a9fffba"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_71/reads.fastq",
+                                        "sha256":  "e4d134967fdfd7b1c602d90281f3475371bfaeabcf853d9d9f77dbb77265f9b3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_71/truth.tsv",
+                                        "sha256":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_71/oracle.tsv",
+                                        "sha256":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_71/r_errors.tsv",
+                                        "sha256":  "20ddb9a516d2ddcff02258806d97bd767abf5424f9784b5e8ac04b6953f07a56"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/miscalibrated_71/r_learned.tsv",
+                                        "sha256":  "9975f236a2a605c1e8093035e7f98814ab0f00367239415cc9d424e88a2a9b44"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_11/reads.fastq",
+                                        "sha256":  "b5e8495ca34e111d30b06ede83dd242605e1ad5d30b5ae283b044d819bd66d99"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_11/truth.tsv",
+                                        "sha256":  "04e7ac2c2b972306b9a34bfe871b78c27f6f318c3b7e3964463e0c920d7121b9"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_11/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_11/r_errors.tsv",
+                                        "sha256":  "4d64682a66b57d0d7d2a0252d400912f9760290ab7961c73306e8b174bcab51d"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_11/r_learned.tsv",
+                                        "sha256":  "d23a893b36574d046be2aceaf8be8c8bb4f59b56bb42ce30c162e6a3f8dbdf0d"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_23/reads.fastq",
+                                        "sha256":  "b22e58d9452b27f0395ee53f42a75aa372c6bfd9a19ac89a9d6c5a55cdb0bf2b"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_23/truth.tsv",
+                                        "sha256":  "026e17d998989a95b4172edd83a7c6df7da8d4e4be0b073f251ff835d49fa82c"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_23/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_23/r_errors.tsv",
+                                        "sha256":  "8544b62ada8375dbded48506c4baca21d1f67706f9efcd5ce1dc54997613fcd5"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_23/r_learned.tsv",
+                                        "sha256":  "48025df9afe74801418a72934e3989b22fb034f4c0b7d891d922f3b4c06834b4"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_37/reads.fastq",
+                                        "sha256":  "2a57ca087512a18fd6a0baa8d685b59a14857bf91f3977da472d5dcda527602e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_37/truth.tsv",
+                                        "sha256":  "7a6a4974fb585dd0ee0aaa77577c8a0115b595485f376e077ebe783733aeed1f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_37/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_37/r_errors.tsv",
+                                        "sha256":  "801072449ef05b9c106a77ac1f8ff4324922cf41d7a7ae57c0620158ed85e2cb"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_37/r_learned.tsv",
+                                        "sha256":  "ce6ce75bbb15dd8d89c49051144182bf454a7710ea1c826e430dd1ea27017edf"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_51/reads.fastq",
+                                        "sha256":  "20d4ef2f62a3d6b9abb967b6ac82f4b7664d8963b6a4475a2cbc3a30b0c499ab"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_51/truth.tsv",
+                                        "sha256":  "d569bf47df5bf30d0dfbaa2455a97e8555129e88744fdd8831a6c4dceea30684"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_51/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_51/r_errors.tsv",
+                                        "sha256":  "00ebb1fbf7fd54d071fc9b4ee783e1faf754206b3a5b582b139d62a542e26463"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_51/r_learned.tsv",
+                                        "sha256":  "15f96ed5390947cb9402f4ed76610623ec936eb2a609087a1f0a9d95e74ff0b3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_71/reads.fastq",
+                                        "sha256":  "0d84aa0def41a1295cf88a3f8fe15f55ac5e42aad8915aa6540c2c5197adca4c"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_71/truth.tsv",
+                                        "sha256":  "fef4bd68c2517e117a3a1755b6305bb9d5252de3684734a4457d17632aef47ff"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_71/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_71/r_errors.tsv",
+                                        "sha256":  "9fcd30199eab8546a9b789554fa4b6fe9b09f0e4e2117bdfe05717ecdc34cc7f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/indels_71/r_learned.tsv",
+                                        "sha256":  "8990192729e1adced0390553aabfed3c83f5b276860ec73d30c3290e4d652581"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_11/reads.fastq",
+                                        "sha256":  "f45a2d2fd0da6bc266f2b7b1dc21f3f11eb378d748cabef91a6a41b7f3ef81d7"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_11/truth.tsv",
+                                        "sha256":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_11/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_11/r_errors.tsv",
+                                        "sha256":  "461d4e6ce497660dc7acc20c4d99ea398a4e9a972ca27d7945648b732a6f7fe1"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_11/r_learned.tsv",
+                                        "sha256":  "ed933ae26cfc79ca688e2d5f8536764eef17f341ee33aeecd122b7af6030f2a3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_23/reads.fastq",
+                                        "sha256":  "339c6c439f29c36380737703f9bcb05aaa6f8243f2c9ec323cbe54490a042df2"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_23/truth.tsv",
+                                        "sha256":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_23/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_23/r_errors.tsv",
+                                        "sha256":  "ad29545d31a563faf190d6c199cc61b1744687ea4e95736d2f3fa9f4fec90e39"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_23/r_learned.tsv",
+                                        "sha256":  "118725d69d10a8482c6c8f61a586d2058294e10b59961ecd17a6ba1457e1ec11"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_37/reads.fastq",
+                                        "sha256":  "cb222e9c3f62ea57935e37fe847928e35138251fc3312c9a1f9d56408df9d272"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_37/truth.tsv",
+                                        "sha256":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_37/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_37/r_errors.tsv",
+                                        "sha256":  "f45b7289046058042bf34465c8f4480ef0560c801a4fcac9b645d73de3f922d4"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_37/r_learned.tsv",
+                                        "sha256":  "22244686d15acdd7b10c820c418bfc7c52e5578affd4a2327a23698d913f4e6f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_51/reads.fastq",
+                                        "sha256":  "38987eb3d6eff5c2173c8068f25d515b3b14f9a719e8304207fb6258bf1b0c92"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_51/truth.tsv",
+                                        "sha256":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_51/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_51/r_errors.tsv",
+                                        "sha256":  "f56f6b95153a5b8f5d57ae1a68165077811af2fc9c19d07f7d16713b07197c27"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_51/r_learned.tsv",
+                                        "sha256":  "bccc6d42593f1fa4dcc3bbc04fc9ba1574906efcd952be3b239997f7bf15fd3f"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_71/reads.fastq",
+                                        "sha256":  "1492e3525b286b176758fca3bee617e28990477f0d7b1aaca7360a142748970e"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_71/truth.tsv",
+                                        "sha256":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_71/oracle.tsv",
+                                        "sha256":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_71/r_errors.tsv",
+                                        "sha256":  "78bf7934e3dc621ba8b17626446b1acf5ff64ae7b5aadbd305028af74bc017c8"
+                                    },
+                                    {
+                                        "path":  "validation/generated/science/chimeras_71/r_learned.tsv",
+                                        "sha256":  "6a4b07df20a90ce0512d33eb791f25f6e355a6dd0380aefb1f03c4c83449ea7f"
+                                    }
+                                ],
+    "mock_input_hashes":  [
+                              {
+                                  "path":  "validation/generated/public/r_filteredF.fastq.gz",
+                                  "sha256":  "863c3aa85293a8c77f0d0f59244b9189c14240856aca1242b28ce9c52579888d"
+                              },
+                              {
+                                  "path":  "validation/generated/public/r_filteredR.fastq.gz",
+                                  "sha256":  "9152d61100bebbafbe24c777b5a1e1d84c08df3ce0d8714f08d446a8dad420bf"
+                              },
+                              {
+                                  "path":  "validation/generated/public/HMP_MOCK.v35.fasta",
+                                  "sha256":  "d927a3b524e6271b8f7ba5ee6fdaedc8f5dabe3f83658d375738781577615adb"
+                              }
+                          ]
+}

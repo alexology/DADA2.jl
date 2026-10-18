@@ -1,0 +1,296 @@
+﻿{
+    "conditions":  30,
+    "denoiser_version":  "0.2.0",
+    "seeds":  [
+                  11,
+                  23,
+                  37,
+                  51,
+                  71
+              ],
+    "measured_method_sample_pairs":  150,
+    "r_versions":  [
+                       "R 4.5.0",
+                       "dada2 1.36.0"
+                   ],
+    "public_input_hashes":  {
+                                "miseqsopdata.zip":  "728f7544824f8ca0223618b18bb60fce6a5dc20ae3d476267dbd5cf5594a35d4",
+                                "Mock_S280_L001_R1_001.fastq":  "f727a29e8452d3724a38bd0271a9dd103752fc94105590200f14481309cb8c7e",
+                                "Mock_S280_L001_R2_001.fastq":  "2dc7fa7e97d337d18e1995ff8612885eee3f9434a2e0344a1f8adea04f4f6725",
+                                "HMP_MOCK.v35.fasta":  "d927a3b524e6271b8f7ba5ee6fdaedc8f5dabe3f83658d375738781577615adb"
+                            },
+    "simulated_inputs":  [
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "2e978b3284835bf66508209009bdcdfd7cfee8f0a181e2343e1b82681673eb5d",
+                                                "truth.tsv":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                            },
+                                 "case":  "calibrated_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "34b50c2cc130f4cca625d461129c5109d112ec6b4adf3bd51116adbed2dc8aa0",
+                                                "truth.tsv":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                            },
+                                 "case":  "calibrated_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "688c403f9e458c4049e73019d09efdb87fbbe57adec3a2009a0cbad8d4ff1040",
+                                                "truth.tsv":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                            },
+                                 "case":  "calibrated_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "fcc0d9c4ba1027273763abb58a51dd97bf1a7d4d46c49ced623d00a2329478b6",
+                                                "truth.tsv":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                            },
+                                 "case":  "calibrated_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "7f87eb0acaa50489c5ff2b1632f0916ba94b69313fd1d343d43f26bcb20007c6",
+                                                "truth.tsv":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                            },
+                                 "case":  "calibrated_71"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "f45a2d2fd0da6bc266f2b7b1dc21f3f11eb378d748cabef91a6a41b7f3ef81d7",
+                                                "truth.tsv":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                            },
+                                 "case":  "chimeras_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "339c6c439f29c36380737703f9bcb05aaa6f8243f2c9ec323cbe54490a042df2",
+                                                "truth.tsv":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                            },
+                                 "case":  "chimeras_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "cb222e9c3f62ea57935e37fe847928e35138251fc3312c9a1f9d56408df9d272",
+                                                "truth.tsv":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                            },
+                                 "case":  "chimeras_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "38987eb3d6eff5c2173c8068f25d515b3b14f9a719e8304207fb6258bf1b0c92",
+                                                "truth.tsv":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                            },
+                                 "case":  "chimeras_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "1492e3525b286b176758fca3bee617e28990477f0d7b1aaca7360a142748970e",
+                                                "truth.tsv":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                            },
+                                 "case":  "chimeras_71"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "b5e8495ca34e111d30b06ede83dd242605e1ad5d30b5ae283b044d819bd66d99",
+                                                "truth.tsv":  "04e7ac2c2b972306b9a34bfe871b78c27f6f318c3b7e3964463e0c920d7121b9"
+                                            },
+                                 "case":  "indels_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "b22e58d9452b27f0395ee53f42a75aa372c6bfd9a19ac89a9d6c5a55cdb0bf2b",
+                                                "truth.tsv":  "026e17d998989a95b4172edd83a7c6df7da8d4e4be0b073f251ff835d49fa82c"
+                                            },
+                                 "case":  "indels_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "2a57ca087512a18fd6a0baa8d685b59a14857bf91f3977da472d5dcda527602e",
+                                                "truth.tsv":  "7a6a4974fb585dd0ee0aaa77577c8a0115b595485f376e077ebe783733aeed1f"
+                                            },
+                                 "case":  "indels_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "20d4ef2f62a3d6b9abb967b6ac82f4b7664d8963b6a4475a2cbc3a30b0c499ab",
+                                                "truth.tsv":  "d569bf47df5bf30d0dfbaa2455a97e8555129e88744fdd8831a6c4dceea30684"
+                                            },
+                                 "case":  "indels_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "0d84aa0def41a1295cf88a3f8fe15f55ac5e42aad8915aa6540c2c5197adca4c",
+                                                "truth.tsv":  "fef4bd68c2517e117a3a1755b6305bb9d5252de3684734a4457d17632aef47ff"
+                                            },
+                                 "case":  "indels_71"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e",
+                                                "reads.fastq":  "609fefd23a6b65fc6a2e3361a3d25595f8f5f93f8e5d2be5c7efa5a5f72a3252",
+                                                "truth.tsv":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                            },
+                                 "case":  "miscalibrated_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e",
+                                                "reads.fastq":  "0a54c146464254fe48c6f286ccab6eefbf9b9a1573ad01241360d3a50bf6dac6",
+                                                "truth.tsv":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                            },
+                                 "case":  "miscalibrated_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e",
+                                                "reads.fastq":  "da6b0fe9afa4f60b678ee352b301605d7a1b680e71c55889d4e320f88e907909",
+                                                "truth.tsv":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                            },
+                                 "case":  "miscalibrated_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e",
+                                                "reads.fastq":  "263a4b05e617c07ff1b8e36a416f4f089924f39ae47bc5ace303405f3d06997f",
+                                                "truth.tsv":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                            },
+                                 "case":  "miscalibrated_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "faece50da7f7baa27568d7b45fbc59c7f2d30871a4d59b71c588002dabd62d2e",
+                                                "reads.fastq":  "e4d134967fdfd7b1c602d90281f3475371bfaeabcf853d9d9f77dbb77265f9b3",
+                                                "truth.tsv":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                            },
+                                 "case":  "miscalibrated_71"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce",
+                                                "reads.fastq":  "f9fa5ca75adaf983c87a84d353d1d5fed02a67b5b149878e9071c13926b12d2a",
+                                                "truth.tsv":  "e19a7f93c92986f082d9794eef4533882a355fe65e48dd974dd85d938429ed23"
+                                            },
+                                 "case":  "no_errors_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce",
+                                                "reads.fastq":  "134963294e0f3572bfe49cfdb9099ea2d25f4698256dc07aef6d763f0c2ea3b7",
+                                                "truth.tsv":  "8078cae7af2f874380e963e8dbf6179b9127874e471b7e8d5783d8ef8b777904"
+                                            },
+                                 "case":  "no_errors_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce",
+                                                "reads.fastq":  "567559062bacc9b26284d4aa278320f4c197fd62aec04dffac384a06a2c97003",
+                                                "truth.tsv":  "ed808d7c5e73da8cb7edaaac7a021bf3ef21b24ab4ce85c71499cecdf5d0fee3"
+                                            },
+                                 "case":  "no_errors_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce",
+                                                "reads.fastq":  "dd1f056dae484a901dc6a0f3187c0a7c530cb82971e9ff8fe7b7145f66e4018f",
+                                                "truth.tsv":  "d949a6e0227e4b06305a40b394c4dbd719aa7cbffc680c2fd5780285e45bf603"
+                                            },
+                                 "case":  "no_errors_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "ffb176d4095d7e20aacb4914721b635f0ac67f9b11682401b54981a006983cce",
+                                                "reads.fastq":  "f660250431ee687673fbd03de09150277a7d87deab057c70f424d1e8123a7853",
+                                                "truth.tsv":  "018c00aca532bb8556cd918355bfb09297656d61340d967af636f1c2c8a24988"
+                                            },
+                                 "case":  "no_errors_71"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "1e9074d4a44bd0776fd1febf00389b5ec235bd37368ab926289dd07e9851bd67",
+                                                "truth.tsv":  "668862c93ef70e1fd605713205c8fc538f31d156aedf55f8aa674c1083f31ff6"
+                                            },
+                                 "case":  "rare_snv_11"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "3b688943399c3a9a79672a448c4919dee18ee85d855bd87ae7459c3ac441ad77",
+                                                "truth.tsv":  "4a7ff1a28f713d029152a8b2daa27f886bef2b2b6b05f77e61c6f130cabe90c2"
+                                            },
+                                 "case":  "rare_snv_23"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "4cb736077d4ffb71d44e5478211b16a6c9b8baae49baffd6b6f6ee137ea0ad5f",
+                                                "truth.tsv":  "9b4ce024bc81009321e70a25e6599afb468f47f860134ac10dac1644a714cab0"
+                                            },
+                                 "case":  "rare_snv_37"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "7f8fb54b4c9cb87c0c32b4750dea15e98ad53dae428c91edd58e114ca0239404",
+                                                "truth.tsv":  "e6b38ef5fe81eeae64799973db0c64b98b81390cce6eb59bec3152ef49744e2c"
+                                            },
+                                 "case":  "rare_snv_51"
+                             },
+                             {
+                                 "hashes":  {
+                                                "oracle.tsv":  "2733d4dfe2887fb186df662b35cff0dcf86b4284c8c035626179e9f9d73f783a",
+                                                "reads.fastq":  "80f90f998da167eb46a385db6b84ac9140be6fa4d73cf432f5dba54ef329fc98",
+                                                "truth.tsv":  "6cb5c78d54172297ae5d0a303cdfaf9cfd720c01c1a51c09b180b550cd7e8076"
+                                            },
+                                 "case":  "rare_snv_71"
+                             }
+                         ],
+    "julia":  "julia version 1.12.2",
+    "independent_communities":  5,
+    "source_hashes":  [
+                          {
+                              "sha256":  "ea82d3ea7cc77a032473bc18b6ba68570c0ced4e8114bb90f38c21b8f6494ade",
+                              "file":  "src/alignment.jl"
+                          },
+                          {
+                              "sha256":  "6c2bf13956fe14d716676ab63d815e625d186ecbf423ff63176d926e354db5fe",
+                              "file":  "src/community.jl"
+                          },
+                          {
+                              "sha256":  "57819fc1f3d5e6eb0e0a5b7003ac1ab257ed4ddb41795311a262242e5179500c",
+                              "file":  "src/DADA2.jl"
+                          },
+                          {
+                              "sha256":  "5495f4852e42a45623c6c6a3962664d0c2eb8b6f2d0e6eea17dae525726c1d1f",
+                              "file":  "src/fastq.jl"
+                          },
+                          {
+                              "sha256":  "2346bd39dc7e80d15b8e7a38f2e80b7cf5553d160cb44e131a45217326ed808a",
+                              "file":  "src/inference.jl"
+                          },
+                          {
+                              "sha256":  "8d941aa2647a992d4812c7ff63082026a8bdc8b380dd1f8674bb6fdc8c2b1f0c",
+                              "file":  "src/taxonomy.jl"
+                          },
+                          {
+                              "sha256":  "113936a37d4d6c195180044e7438aa6ec7c4849b119679828f3da1944599e638",
+                              "file":  "src/types.jl"
+                          }
+                      ]
+}

@@ -1,0 +1,8 @@
+"file"	"sha256"	"matches_released_0_2_0"
+"src/alignment.jl"	"ea82d3ea7cc77a032473bc18b6ba68570c0ced4e8114bb90f38c21b8f6494ade"	"True"
+"src/community.jl"	"6c2bf13956fe14d716676ab63d815e625d186ecbf423ff63176d926e354db5fe"	"True"
+"src/DADA2.jl"	"57819fc1f3d5e6eb0e0a5b7003ac1ab257ed4ddb41795311a262242e5179500c"	"True"
+"src/fastq.jl"	"5495f4852e42a45623c6c6a3962664d0c2eb8b6f2d0e6eea17dae525726c1d1f"	"True"
+"src/inference.jl"	"2346bd39dc7e80d15b8e7a38f2e80b7cf5553d160cb44e131a45217326ed808a"	"True"
+"src/taxonomy.jl"	"8d941aa2647a992d4812c7ff63082026a8bdc8b380dd1f8674bb6fdc8c2b1f0c"	"True"
+"src/types.jl"	"113936a37d4d6c195180044e7438aa6ec7c4849b119679828f3da1944599e638"	"True"

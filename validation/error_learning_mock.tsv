@@ -1,0 +1,4 @@
+method	asvs	exact_matches	unmatched	reads	forward_converged	reverse_converged
+linear	20	20	0	4269	true	true
+loess	20	20	0	4269	true	true
+raw	20	20	0	4269	true	true

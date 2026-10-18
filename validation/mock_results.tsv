@@ -1,0 +1,4 @@
+method	asvs	exact_reference_matches	unmatched_asvs	exact_match_precision	unmatched_read_fraction	accepted_reads	reference_records_covered
+julia_learned	20	20	0	1.0	0.0	4276	27
+julia_r_errors	20	20	0	1.0	0.0	4269	27
+r_learned	20	20	0	1.0	0.0	4269	27

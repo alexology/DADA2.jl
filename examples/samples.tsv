@@ -1,0 +1,2 @@
+sample	forward	reverse
+sam1	../test/fixtures/sam1F.fastq.gz	../test/fixtures/sam1R.fastq.gz
