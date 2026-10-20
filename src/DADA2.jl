@@ -2,6 +2,7 @@ module DADA2
 
 using CodecZlib
 import BioSequences
+import FASTX
 using Distributions: Poisson, logccdf
 using Random
 using LinearAlgebra: pinv

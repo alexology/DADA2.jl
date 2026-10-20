@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- `FastqReader` and `readFasta` parse with FASTX.jl (new dependency); the
+  public API is unchanged. Records are identical to the previous readers on
+  the mock and fixture FASTQ files and on SILVA v132 (313,502 records).
+  FASTX is stricter on one point: a `+` line that repeats a different
+  header is rejected. Whitespace inside FASTA sequence lines is removed
+  (previously an error); malformed files raise an `ArgumentError`.
+- `validated_dna` (used for every FASTQ read and FASTA record) checks bytes
+  with a lookup table: 17 times faster on SILVA, same accepted input and
+  errors; invalid UTF-8 now raises `ArgumentError` instead of
+  `InvalidCharError`. With both changes, reading a 107 MB FASTQ takes
+  0.58 s instead of 1.1 s and `readFasta` on SILVA 1.2 s instead of 6.8 s.
 - BioSequences 3.5 interoperability across DNA alignment, FASTQ records,
   chimera detection, taxonomy/species queries and FASTA writing.
 - `readFasta(path; bio=true)` returns compact `LongDNA{4}` values while the

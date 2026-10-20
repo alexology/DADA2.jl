@@ -8,10 +8,35 @@ const DNA = UInt8[0x41, 0x43, 0x47, 0x54]
 end
 const IUPAC_DNA = codeunits("ACGTRYSWKMBDHVN")
 const DNAInput = Union{AbstractString,BioSequences.NucSeq}
+@inline ascii_upper(b::UInt8) = 0x61 <= b <= 0x7a ? b - 0x20 : b
+# Class of each raw byte, after upper-casing: 0x01 = A/C/G/T, 0x02 = N,
+# 0x04 = IUPAC code; 0x80 marks a lower-case letter. Non-ASCII bytes have no
+# class, so ASCII upper-casing is enough.
+const DNA_CLASS = let t = zeros(UInt8, 256)
+    for b in 0x00:0xff
+        u = ascii_upper(b)
+        u in DNA && (t[b+1] |= 0x01)
+        u == 0x4e && (t[b+1] |= 0x02)
+        u in IUPAC_DNA && (t[b+1] |= 0x04)
+        u != b && (t[b+1] |= 0x80)
+    end
+    t
+end
+dna_allowed(ambiguous, iupac) = 0x01 | (ambiguous ? 0x02 : 0x00) | (iupac ? 0x04 : 0x00)
+# Upper-cased sequence, or `nothing` if a byte is not allowed.
+function checked_dna(seq::String, allowed::UInt8)
+    cu = codeunits(seq)
+    seen = 0x00; bad = false
+    @inbounds @simd for i in eachindex(cu)
+        c = DNA_CLASS[cu[i]+1]
+        seen |= c
+        bad |= c & allowed == 0x00
+    end
+    bad ? nothing : seen & 0x80 != 0x00 ? String(map(ascii_upper, cu)) : seq
+end
 function validated_dna(s::AbstractString; ambiguous=false, iupac=false)
-    seq = uppercase(String(s))
-    all(b -> b in DNA || (ambiguous && b == 0x4e) || (iupac && b in IUPAC_DNA), codeunits(seq)) ||
-        throw(ArgumentError("Sequence must contain A/C/G/T$(ambiguous ? "/N" : "")"))
+    seq = checked_dna(String(s), dna_allowed(ambiguous, iupac))
+    seq === nothing && throw(ArgumentError("Sequence must contain A/C/G/T$(ambiguous ? "/N" : "")"))
     seq
 end
 validated_dna(s::BioSequences.NucSeq;kwargs...)=validated_dna(String(s);kwargs...)

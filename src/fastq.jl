@@ -1,7 +1,7 @@
-"Streaming four-line FASTQ reader; caller owns and closes the reader."
+"Streaming four-line FASTQ reader (FASTX.jl); caller owns and closes the reader."
 mutable struct FastqReader
-    io::IO
-    line::Int
+    reader::FASTX.FASTQ.Reader
+    record::Int
 end
 function open_sequence(path::AbstractString, mode::AbstractString)
     raw = open(path, mode)
@@ -15,21 +15,22 @@ function open_sequence(path::AbstractString, mode::AbstractString)
     end
     raw
 end
-FastqReader(path::AbstractString) = FastqReader(open_sequence(path, "r"), 0)
-Base.close(r::FastqReader) = close(r.io)
+FastqReader(path::AbstractString) = FastqReader(FASTX.FASTQReader(open_sequence(path, "r"); copy=false), 0)
+Base.close(r::FastqReader) = close(r.reader)
 Base.IteratorSize(::Type{FastqReader}) = Base.SizeUnknown()
 Base.eltype(::Type{FastqReader}) = FastqRecord
 function Base.iterate(r::FastqReader, state=nothing)
-    eof(r.io) && return nothing
-    lines = String[]
-    for _ in 1:4
-        eof(r.io) && throw(ArgumentError("Truncated FASTQ at line $(r.line+1)"))
-        push!(lines, readline(r.io))
-        r.line += 1
+    next = try
+        iterate(r.reader)
+    catch e
+        e isa ErrorException || e isa EOFError || rethrow()
+        throw(ArgumentError("Invalid FASTQ after record $(r.record): $(sprint(showerror, e))"))
     end
-    startswith(lines[1], "@") && startswith(lines[3], "+") || throw(ArgumentError("Invalid FASTQ at line $(r.line-3)"))
-    qual = [Int(c)-33 for c in codeunits(lines[4])]
-    (FastqRecord(lines[1][2:end], lines[2], qual), nothing)
+    next === nothing && return nothing
+    rec = first(next)
+    r.record += 1
+    qual = [Int(c)-33 for c in codeunits(FASTX.quality(rec))]
+    (FastqRecord(FASTX.description(rec), FASTX.sequence(String, rec), qual), nothing)
 end
 function write_record(io::IO, r::FastqRecord)
     println(io, '@', r.id)

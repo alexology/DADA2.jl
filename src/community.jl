@@ -109,32 +109,29 @@ function removeBimeraDenovo(table::SequenceTable; minFoldParentOverAbundance=1.0
     SequenceTable(table.samples, table.sequences[keep], table.counts[:,keep])
 end
 
+isspace_byte(b::UInt8) = b == 0x20 || 0x09 <= b <= 0x0d
+# Whitespace inside sequence lines is removed only when validation fails, so
+# that clean sequences are scanned once.
+function validated_fasta_dna(s::String)
+    seq = checked_dna(s, dna_allowed(false, true))
+    seq !== nothing && return seq
+    validated_dna(String(filter(!isspace_byte, codeunits(s))); iupac=true)
+end
 function readFasta(path::AbstractString; bio=false)
-    io = open_sequence(path,"r"); ids = String[]; sequences = String[]; buffer = IOBuffer()
+    reader = FASTX.FASTAReader(open_sequence(path,"r"); copy=false); ids = String[]; sequences = String[]
     try
-        for line in eachline(io)
-            isempty(strip(line)) && continue
-            if startswith(line,">")
-                if !isempty(ids)
-                    s = validated_dna(String(take!(buffer)); iupac=true)
-                    isempty(s) && throw(ArgumentError("Empty FASTA sequence"))
-                    push!(sequences,s)
-                end
-                id = strip(line[2:end])
-                isempty(id) && throw(ArgumentError("Empty FASTA header"))
-                push!(ids,id)
-            else
-                isempty(ids) && throw(ArgumentError("FASTA sequence before header"))
-                write(buffer,strip(line))
-            end
-        end
-        if !isempty(ids)
-            s = validated_dna(String(take!(buffer)); iupac=true)
+        for rec in reader
+            id = strip(FASTX.description(rec))
+            isempty(id) && throw(ArgumentError("Empty FASTA header"))
+            s = validated_fasta_dna(FASTX.sequence(String,rec))
             isempty(s) && throw(ArgumentError("Empty FASTA sequence"))
-            push!(sequences,s)
+            push!(ids,id); push!(sequences,s)
         end
+    catch e
+        e isa ErrorException || e isa EOFError || rethrow()
+        throw(ArgumentError("Invalid FASTA $path: $(sprint(showerror, e))"))
     finally
-        close(io)
+        close(reader)
     end
     (ids=ids,sequences=bio ? BioSequences.LongDNA{4}.(sequences) : sequences)
 end

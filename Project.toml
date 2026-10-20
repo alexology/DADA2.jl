@@ -6,16 +6,18 @@ version = "0.3.0"
 BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
 CodecZlib = "944b1d66-785c-5afd-91f1-9de20f533193"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+FASTX = "c2308a5c-f048-11e8-3e8a-31650f418d12"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-julia = "1.10"
 BioSequences = "3.5"
 CodecZlib = "0.7"
 Distributions = "0.25"
-Random = "1"
+FASTX = "2"
 LinearAlgebra = "1"
+Random = "1"
+julia = "1.10"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
