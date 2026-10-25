@@ -37,6 +37,24 @@ end
         write(rev,"@wrong/2\nACGT\n+\nIIII\n")
         @test_throws ArgumentError filterAndTrim(raw,rev,joinpath(dir,"badf"),joinpath(dir,"badr"))
         @test !isfile(joinpath(dir,"badf")) && !isfile(joinpath(dir,"badr"))
+        # Failed runs leave no temporary files; a missing output directory is
+        # reported before anything is opened
+        @test sort(readdir(dir)) == sort(["reads.fastq","filtered.fastq.gz","reverse.fastq","f.fastq","r.fastq"])
+        @test_throws ArgumentError filterAndTrim(raw,joinpath(dir,"missing","out.fastq"))
+        @test_throws ArgumentError filterAndTrim(joinpath(dir,"none.fastq"),joinpath(dir,"out.fastq"))
+        # A rename that fails rolls back the outputs already published
+        t1, t2 = DADA2.temp_output(of), DADA2.temp_output(of)
+        p1, p2 = joinpath(dir,"pub1"), joinpath(dir,"pub2")
+        write(p2,"exists")
+        @test_throws Exception DADA2.publish_outputs([t1,t2],[p1,p2])
+        @test !isfile(p1) && read(p2,String) == "exists"
+        rm.([t2,p2]; force=true)
+        # Outputs differing only in letter case are one file where case is ignored
+        if DADA2.case_insensitive(realpath(dir))
+            @test_throws ArgumentError filterAndTrim(raw,rev,joinpath(dir,"same.fastq"),joinpath(dir,"SAME.fastq"))
+            @test_throws ArgumentError filterAndTrim(raw,lowercase(raw))
+            @test !isfile(joinpath(dir,"same.fastq"))
+        end
         write(joinpath(dir,"truncated"),"@read\nACGT\n+\n")
         @test_throws ArgumentError derepFastq(joinpath(dir,"truncated"))
         write(joinpath(dir,"crlf.fastq"),"@r1 x/1\r\nacgt\r\n+\r\nII#!\r\n")
@@ -98,6 +116,74 @@ end
                 @test all(r -> length(r.sequence) == 4,records)
             end
         end
+    end
+end
+
+@testset "Filter order as R fastqFilter" begin
+    # Expected values from R dada2 1.36.0 fastqFilter.
+    r = FastqRecord("r","ACGT",UInt8[0,0,40,40])
+    for truncLen in (0,4)
+        f = DADA2.filtered(r,FilterOptions(trimLeft=2,truncLen=truncLen,minLen=1,maxEE=Inf))
+        @test (f.sequence,f.quality) == ("GT",UInt8[40,40])
+    end
+    # truncQ is searched only after trimLeft; a low base after it still truncates.
+    r = FastqRecord("r","ACGTACGT",UInt8[0,40,40,40,40,2,40,40])
+    @test DADA2.filtered(r,FilterOptions(trimLeft=1,minLen=1,maxEE=Inf)).sequence == "CGTA"
+    @test DADA2.filtered(r,FilterOptions(trimLeft=1,truncLen=5,minLen=1,maxEE=Inf)).sequence == "CGTA"
+    @test DADA2.filtered(r,FilterOptions(trimLeft=1,truncLen=6,minLen=1,maxEE=Inf)) === nothing
+    # maxLen applies to the raw read, before trimming and truncation.
+    good = FastqRecord("r","ACGTACGTAC",fill(UInt8(40),10))
+    @test DADA2.filtered(good,FilterOptions(truncLen=5,maxLen=9,minLen=1)) === nothing
+    @test DADA2.filtered(good,FilterOptions(truncLen=5,maxLen=10,minLen=1)).sequence == "ACGTA"
+    # R ignores a truncLen that does not exceed trimLeft.
+    @test DADA2.filtered(good,FilterOptions(trimLeft=3,truncLen=3,minLen=1)).sequence == "TACGTAC"
+    @test DADA2.filtered(good,FilterOptions(trimLeft=10,minLen=1)) === nothing
+    mktempdir() do dir
+        f = joinpath(dir,"f.fastq"); rv = joinpath(dir,"r.fastq")
+        write(f,"@p/1\nACGT\n+\n!!II\n"); write(rv,"@p/2\nACGT\n+\nIIII\n")
+        opts = FilterOptions(trimLeft=2,minLen=1,maxEE=Inf)
+        @test filterAndTrim(f,joinpath(dir,"single.fastq");options=opts).reads_out == 1
+        stats = filterAndTrim(f,rv,joinpath(dir,"pf.fastq"),joinpath(dir,"pr.fastq");optionsF=opts,optionsR=opts)
+        @test stats.reads_out == 1
+    end
+end
+
+@testset "Failed publication leaves no output" begin
+    if Sys.iswindows()
+        # Open with read sharing only: renaming or deleting the file fails.
+        function lock_read(path)
+            h = ccall((:CreateFileW,"kernel32"),stdcall,Ptr{Cvoid},
+                      (Cwstring,UInt32,UInt32,Ptr{Cvoid},UInt32,UInt32,Ptr{Cvoid}),
+                      path,0x80000000,0x00000001,C_NULL,0x00000003,0x00000000,C_NULL)
+            h == Ptr{Cvoid}(typemax(UInt)) && error("CreateFileW failed")
+            h
+        end
+        release(h) = ccall((:CloseHandle,"kernel32"),stdcall,Cint,(Ptr{Cvoid},),h)
+        mktempdir() do dir
+            for paired in (false,true)
+                tmps = [joinpath(dir,"temp$(paired)_$i") for i in 1:(paired ? 2 : 1)]
+                outs = [joinpath(dir,"out$(paired)_$i") for i in eachindex(tmps)]
+                foreach(t -> write(t,"@r\nACGT\n+\nIIII\n"),tmps)
+                h = lock_read(tmps[end])
+                try
+                    @test_throws Base.IOError DADA2.publish_outputs(tmps,outs)
+                    @test !any(isfile,outs)
+                finally
+                    release(h)
+                end
+            end
+        end
+    end
+    mktempdir() do dir
+        # A destination that appeared after the path checks is never replaced.
+        tmp = joinpath(dir,"tmp"); out = joinpath(dir,"out")
+        write(tmp,"new"); write(out,"old")
+        @test_throws ArgumentError DADA2.publish_outputs([tmp],[out])
+        @test read(out,String) == "old"
+        tmps = [joinpath(dir,"a"),joinpath(dir,"b")]; outs = [joinpath(dir,"oa"),out]
+        foreach(t -> write(t,"new"),tmps)
+        @test_throws ArgumentError DADA2.publish_outputs(tmps,outs)
+        @test !isfile(outs[1]) && read(out,String) == "old"
     end
 end
 
@@ -248,3 +334,5 @@ end
 @testset "Bundled DADA2 paired-end fixture" begin
     include("upstream_smoke.jl")
 end
+
+include("test_tasks.jl")

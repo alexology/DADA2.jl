@@ -201,6 +201,20 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
 end
 dada(d::Derep, err::AbstractMatrix; kwargs...) = dada(d, ErrorModel(err); kwargs...)
 dada(path::AbstractString, err=phredErrors(); kwargs...) = dada(derepFastq(path), err; kwargs...)
+# Always finish sibling tasks before returning or propagating their first error.
+function wait_all(tasks)
+    first_error = nothing
+    for task in tasks
+        try
+            wait(task)
+        catch e
+            first_error === nothing && (first_error = e)
+        end
+    end
+    first_error === nothing || throw(first_error)
+    nothing
+end
+
 function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); threaded=true,
               _caches=nothing, kwargs...)
     results = Vector{DadaResult}(undef,length(samples))
@@ -211,6 +225,7 @@ function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); thr
         tasks = map(eachindex(samples)) do i
             Threads.@spawn dada(samples[i],err;threaded=false,_cache=caches[i],kwargs...)
         end
+        wait_all(tasks)
         for i in eachindex(tasks)
             results[i] = fetch(tasks[i])
         end
@@ -391,9 +406,7 @@ function raw_transitions!(trans, samples, results, sources, caches; band=16, thr
         tasks = map(eachindex(samples)) do i
             Threads.@spawn raw_transitions_sample!(partial[i],samples[i],results[i],sources[i],caches[i];band)
         end
-        for task in tasks
-            fetch(task)
-        end
+        wait_all(tasks)
     else
         for i in eachindex(samples)
             raw_transitions_sample!(partial[i],samples[i],results[i],sources[i],caches[i];band)

@@ -3,9 +3,9 @@ mutable struct FastqReader
     reader::FASTX.FASTQ.Reader
     record::Int
 end
-function open_sequence(path::AbstractString, mode::AbstractString)
+function open_sequence(path::AbstractString, mode::AbstractString; gzip=endswith(lowercase(path), ".gz"))
     raw = open(path, mode)
-    if endswith(lowercase(path), ".gz")
+    if gzip
         try
             return mode == "r" ? GzipDecompressorStream(raw) : GzipCompressorStream(raw)
         catch
@@ -48,25 +48,48 @@ function check_options(o::FilterOptions)
     o.trimLeft >= 0 && o.truncLen >= 0 && 0 <= o.truncQ <= 93 && o.maxN >= 0 &&
         o.maxEE >= 0 && o.minLen >= 1 && o.maxLen >= o.minLen || throw(ArgumentError("Invalid filter options"))
 end
+# Same order as R `fastqFilter`: maxLen on the raw read, trimLeft, truncQ on
+# the bases kept after trimLeft, then truncLen (measured on the raw read; R
+# ignores it when it does not exceed trimLeft) and minLen.
 function filtered(r::FastqRecord, o::FilterOptions)
     last = length(r.quality)
-    o.truncLen > 0 && last < o.truncLen && return nothing
-    o.truncLen > 0 && (last = o.truncLen)
-    low = findfirst(q -> q <= o.truncQ, r.quality)
-    low !== nothing && (last = min(last, low-1))
-    # truncLen is measured before trimLeft, including after quality trimming.
-    o.truncLen > 0 && last < o.truncLen && return nothing
+    last <= o.maxLen || return nothing
     first = o.trimLeft + 1
-    o.minLen <= last-first+1 <= o.maxLen || return nothing
+    last >= first || return nothing
+    low = findnext(q -> q <= o.truncQ, r.quality, first)
+    low !== nothing && (last = low-1)
+    if o.truncLen >= first
+        last < o.truncLen && return nothing
+        last = o.truncLen
+    end
+    last-first+1 >= o.minLen || return nothing
     seq = r.sequence[first:last]
     count(==('N'), seq) <= o.maxN || return nothing
     q = @view r.quality[first:last]
     expectedErrors(q) <= o.maxEE || return nothing
     FastqRecord(r.id, seq, q)
 end
+# On a case-insensitive file system (Windows, macOS by default) names that
+# differ only in letter case are the same file; probed on the directory itself.
+function case_insensitive(dir)
+    up, low = uppercase(dir), lowercase(dir)
+    up != low && ispath(up) && ispath(low) && samefile(up, low)
+end
+function path_key(p)
+    dir = realpath(dirname(abspath(p)))
+    key = joinpath(dir, basename(p))
+    case_insensitive(dir) ? lowercase(key) : key
+end
 function check_paths(inputs, outputs)
-    ins = realpath.(inputs)
-    outs = [joinpath(realpath(dirname(abspath(p))), basename(p)) for p in outputs]
+    for p in inputs
+        isfile(p) || throw(ArgumentError("Input file not found: $p"))
+    end
+    for p in outputs
+        dir = dirname(abspath(p))
+        isdir(dir) || throw(ArgumentError("Output directory does not exist: $dir"))
+    end
+    ins = path_key.(realpath.(inputs))
+    outs = path_key.(outputs)
     length(unique(outs)) == length(outs) || throw(ArgumentError("Outputs must differ"))
     any(p -> p in ins, outs) && throw(ArgumentError("Output would overwrite input"))
     any(isfile, outputs) && throw(ArgumentError("Output already exists"))
@@ -76,8 +99,10 @@ function filterAndTrim(input::AbstractString, output::AbstractString; options=Fi
     check_paths([input], [output])
     reader = FastqReader(input)
     n = kept = 0
+    tmp = nothing
     try
-        out = open_sequence(output, "w")
+        tmp = temp_output(output)
+        out = open_sequence(tmp, "w"; gzip=endswith(lowercase(output), ".gz"))
         try
             for r in reader
                 n += 1
@@ -89,13 +114,49 @@ function filterAndTrim(input::AbstractString, output::AbstractString; options=Fi
         finally
             close(out)
         end
+        publish_outputs([tmp], [output])
     catch
-        isfile(output) && rm(output)
+        tmp === nothing || discard(tmp)
         rethrow()
     finally
         close(reader)
     end
     FilterStats(n, kept)
+end
+# Outputs are written to temporary files in the destination directory and
+# renamed into place only after the whole run succeeded, so a failure never
+# leaves a partial file under the requested name.
+function temp_output(path)
+    tmp, io = mktemp(dirname(abspath(path)); cleanup=false)
+    close(io)
+    tmp
+end
+# Renames are not a transaction: if a later one fails, the outputs already
+# published by this call are removed again. A single rename either publishes
+# the whole file or leaves the destination untouched; `mv` would fall back to
+# copying and then fail, leaving the output in place despite the error.
+function publish_outputs(tmps, outputs)
+    done = String[]
+    try
+        for (t, o) in zip(tmps, outputs)
+            # Never overwrite a file that appeared after `check_paths`.
+            ispath(o) && throw(ArgumentError("Output already exists: $o"))
+            Base.Filesystem.rename(t, o)
+            push!(done, o)
+        end
+    catch
+        foreach(discard, done)
+        rethrow()
+    end
+end
+# Best-effort removal during cleanup: a failure here must not hide the
+# original error.
+function discard(path)
+    try
+        rm(path; force=true)
+    catch e
+        @warn "Could not remove $path" exception=e
+    end
 end
 pair_id(id) = replace(first(split(id)), r"/[12]$" => "")
 function filterAndTrim(forward::AbstractString, reverse::AbstractString, outF::AbstractString, outR::AbstractString;
@@ -105,11 +166,13 @@ function filterAndTrim(forward::AbstractString, reverse::AbstractString, outF::A
     resources = IO[]
     readers = FastqReader[]
     n = kept = 0
-    created = String[]
+    tmps = String[]
     try
         push!(readers, FastqReader(forward)); push!(readers, FastqReader(reverse))
-        push!(resources, open_sequence(outF, "w")); push!(created, outF)
-        push!(resources, open_sequence(outR, "w")); push!(created, outR)
+        for o in (outF, outR)
+            push!(tmps, temp_output(o))
+            push!(resources, open_sequence(tmps[end], "w"; gzip=endswith(lowercase(o), ".gz")))
+        end
         while true
             f = iterate(readers[1]); r = iterate(readers[2])
             f === nothing && r === nothing && break
@@ -121,9 +184,11 @@ function filterAndTrim(forward::AbstractString, reverse::AbstractString, outF::A
             write_record(resources[1], ff); write_record(resources[2], rr)
             kept += 1
         end
+        foreach(close, resources); empty!(resources)
+        publish_outputs(tmps, [outF, outR])
     catch
         foreach(close, resources); empty!(resources)
-        foreach(p -> isfile(p) && rm(p), created)
+        foreach(discard, tmps)
         rethrow()
     finally
         foreach(close, resources); foreach(close, readers)
