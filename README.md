@@ -6,6 +6,10 @@ sequence comparisons.
 Version **0.3.0**: it is not yet a complete port, nor a scientifically
 validated replacement for all the functionality of the R package.
 
+This package is part of an experimental effort to use AI to port
+bioinformatics and quantitative ecology packages to Julia, with the goal of
+creating a unified environment for high performance scientific computing.
+
 A [preliminary scientific validation](docs/scientific-validation.md) is now
 available: a real mock community and 30 simulated conditions with known
 ground truth, compared with DADA2 R. The mock yields 20 ASVs, all matching the
@@ -17,6 +21,16 @@ The scientific report refers to 0.2.0; 0.2.1 fixes the `truncLen` filter, with
 learning diagnostics: [method and results](docs/error-learning.md).
 A [timing comparison with DADA2 R on the mock](docs/mock-timing.md) is also
 available: on the complete pipeline, R is faster in this local test.
+
+## Install from GitHub
+
+This package is not registered in the Julia General registry. Install it
+from GitHub:
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/alexology/DADA2.jl")
+```
 
 ## Installation and usage
 
@@ -221,7 +235,7 @@ Create an empty repository on GitHub, then from the extracted directory:
 git init -b main
 git add .
 git commit -m "Release DADA2.jl 0.3.0"
-git remote add origin https://github.com/YOUR_ACCOUNT/DADA2.jl.git
+git remote add origin https://github.com/alexology/DADA2.jl.git
 git push -u origin main
 ```
 
@@ -234,7 +248,7 @@ The option applies to that process only and does not change the system policy.
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
 
 Once published, other users can install the project with
-`Pkg.add(url="https://github.com/YOUR_ACCOUNT/DADA2.jl.git")`.
+`Pkg.add(url="https://github.com/alexology/DADA2.jl.git")`.
 The package is not yet registered in the Julia General registry.
 
 Licensed under LGPL-3.0-only; references and provenance in [NOTICE.md](NOTICE.md).
