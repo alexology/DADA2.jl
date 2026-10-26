@@ -141,7 +141,9 @@ function publish_outputs(tmps, outputs)
         for (t, o) in zip(tmps, outputs)
             # Never overwrite a file that appeared after `check_paths`.
             ispath(o) && throw(ArgumentError("Output already exists: $o"))
-            Base.Filesystem.rename(t, o)
+            # Julia 1.10's Filesystem.rename falls back to copying on failure.
+            err = ccall(:jl_fs_rename, Int32, (Cstring, Cstring), t, o)
+            err < 0 && Base.uv_error("rename($(repr(t)), $(repr(o)))", err)
             push!(done, o)
         end
     catch
