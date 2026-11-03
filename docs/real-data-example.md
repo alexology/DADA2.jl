@@ -38,10 +38,11 @@ julia --project=. --threads=4 examples/real_data.jl --forward "D:/data/sample.fa
 ```
 
 When `--trunc-f`/`--trunc-r` are omitted, the filter keeps variable lengths,
-subject to quality truncation and the minimum length. The script does not
-automatically remove primers, adapters or PhiX; use already prepared input.
-`--trim-left-f` and `--trim-left-r` remove a fixed number of bases; they do not
-search for primer sequences.
+subject to quality truncation and the minimum length. As in R, reads matching
+the phiX genome are removed. The script does not search for primers or
+adapters: `--trim-left-f` and `--trim-left-r` remove a fixed number of bases,
+so use input whose primers start at a fixed position, or remove them first
+(for example with cutadapt).
 
 ## Multiple samples
 
@@ -76,8 +77,11 @@ part in learning. If all samples are empty, the script stops and leaves
 `--min-asv-length` and `--max-asv-length`. For paired-end data this range
 applies to the merged sequences, for single-end data to the sequences retained
 after filtering. `--min-overlap` defaults to 12 and merging requires zero
-mismatches. `--max-iter` defaults to 10. Chimera removal uses consensus by
-default; `--chimera-method pooled` is available.
+mismatches. `--max-iter` defaults to 10. Error rates are learnt as R
+`learnErrors`; `--quality-mode raw` counts transitions at the original read
+qualities instead of the mean qualities (default, as R). Chimera removal uses
+consensus by default; `--chimera-method pooled` and `per-sample` are
+available.
 
 The output directory contains:
 
@@ -105,14 +109,14 @@ Non-convergence is reported and recorded: the files produced should be treated
 as preliminary results. `supported=true` means at least one observation, not
 that the estimate is precise.
 
-The pipeline limitations are those described in the README: merging without
-indels and exact chimera checks between sequences of the same length.
-The script produces ASVs and abundances; it does not assign taxonomy
-automatically.
+Filtering, error learning, inference, merging and chimera removal follow
+DADA2 R ([r-parity.md](r-parity.md)); the length selection and the outputs
+are specific to this script. It produces ASVs and abundances; it does not
+assign taxonomy automatically.
 
-Verified locally with Julia 1.12.2: paired-end example run directly and from a
-TSV (7 ASVs, 938 final reads), single-end (10 ASVs, 1,083 final reads) and a
-batch with two active samples and one empty sample. Check the consistency of
+Verified locally on 3 November 2026 with Julia 1.12.2 on the bundled fixture:
+paired-end, run directly and from `examples/samples.tsv` (7 ASVs, 965 final
+reads, the same table as R), and single-end (10 ASVs, 1,083 final reads). Check the consistency of
 the FASTA/TSV identifiers, the count sums and the retention of reads. The batch
 learns a different model from the single sample, so it may produce different
 counts even for the same input.

@@ -4,7 +4,12 @@ Julia implementation based on the DADA2 model and pipeline by Benjamin
 Callahan and collaborators: https://github.com/benjjneb/dada2.
 Sources consulted at commit `b61fe2e90115be08e78a01a16af89fd21402ca42`
 (DESCRIPTION: version 1.36.0). The Julia code was written in this project;
-it does not incorporate the C++ kernels or R's Mathlib code.
+the inference core, aligners, error-model smoothing, pair merging, chimera
+and phiX screening are translations of the upstream R/C++ code (and of R's
+`loess` Fortran for the one-predictor case). R's Mathlib code is not used.
+`data/phix_genome.fa` is copied unmodified from the upstream
+`inst/extdata/phix_genome.fa` (SHA-256
+19beaeb235899980ec5019a475e25fc41dd6ea98a7bf7afb51dace28b73cc19a).
 The fixtures `test/fixtures/sam1F.fastq.gz` and `sam1R.fastq.gz` are reproduced
 unmodified from that upstream commit, with provenance and checksums in the
 fixtures README.

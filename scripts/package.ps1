@@ -11,7 +11,7 @@ $archivePath = Join-Path $OutputDirectory "DADA2.jl-$packageVersion.zip"
 if (Test-Path -LiteralPath $archivePath) { throw "Archive already exists: $archivePath" }
 $temporaryPath = "$archivePath.tmp"
 if (Test-Path -LiteralPath $temporaryPath) { throw "Temporary archive already exists: $temporaryPath" }
-$directories = @('src', 'test', 'examples', 'docs', 'benchmark', 'validation', 'scripts', '.github')
+$directories = @('src', 'data', 'test', 'examples', 'docs', 'benchmark', 'validation', 'scripts', '.github')
 $files = @('Project.toml', 'README.md', 'LICENSE', 'NOTICE.md', 'CHANGELOG.md', 'CONTRIBUTING.md', '.gitignore')
 $included = @()
 foreach ($name in $files) { $included += Get-Item -LiteralPath (Join-Path $projectRoot $name) }

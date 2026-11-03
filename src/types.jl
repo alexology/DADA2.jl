@@ -94,6 +94,34 @@ struct ErrorModel
         end
         new(r, log.(r))
     end
+    # Upstream intermediate models (all ones, or self-transitions forced to
+    # one) do not sum to one; they are only used inside error learning.
+    ErrorModel(rates::Matrix{Float64}, ::Val{:unchecked}) = new(rates, log.(rates))
+end
+
+"""
+Diagnostics of each ASV, as R's `dada(...)\$clustering`, in the order of
+`DadaResult.sequences`: `abundance`, reads of uniques without (`n0`) or with
+one (`n1`) substitution from the centre, `nunq`, post-hoc `pval`, and the
+birth of the partition (`birth_from` index in this result, `birth_pval`,
+`birth_fold`, `birth_ham`, `birth_qave`), missing for the first partition.
+"""
+const ClusteringTable = NamedTuple{(:sequence, :abundance, :n0, :n1, :nunq, :pval, :birth_from,
+    :birth_pval, :birth_fold, :birth_ham, :birth_qave),
+    Tuple{Vector{String}, Vector{Int}, Vector{Int}, Vector{Int}, Vector{Int}, Vector{Float64},
+          Vector{Union{Missing,Int}}, Vector{Union{Missing,Float64}}, Vector{Union{Missing,Float64}},
+          Vector{Union{Missing,Int}}, Vector{Union{Missing,Float64}}}}
+
+empty_clustering() = ClusteringTable((String[], Int[], Int[], Int[], Int[], Float64[],
+    Union{Missing,Int}[], Union{Missing,Float64}[], Union{Missing,Float64}[],
+    Union{Missing,Int}[], Union{Missing,Float64}[]))
+
+"Rows `rows` of a clustering table, with `birth_from` renumbered by `index` (0 = absent)."
+function select_clustering(t::ClusteringTable, rows::AbstractVector{Int}, index::AbstractVector{Int})
+    birth = Union{Missing,Int}[x === missing || index[x] == 0 ? missing : index[x] for x in t.birth_from[rows]]
+    ClusteringTable((t.sequence[rows], t.abundance[rows], t.n0[rows], t.n1[rows], t.nunq[rows],
+        t.pval[rows], birth, t.birth_pval[rows], t.birth_fold[rows], t.birth_ham[rows],
+        t.birth_qave[rows]))
 end
 
 struct DadaResult
@@ -106,6 +134,7 @@ struct DadaResult
     converged::Bool
     comparisons::Int
     rejected::Int
+    clustering::ClusteringTable
 end
 
 struct SequenceTable
@@ -121,12 +150,28 @@ struct SequenceTable
     end
 end
 
+"Pairs of forward/reverse ASVs, as the data frame of R `mergePairs(..., returnRejects=TRUE)`."
+const MergeTable = NamedTuple{(:sequence, :abundance, :forward, :reverse, :nmatch, :nmismatch,
+                               :nindel, :prefer, :accept),
+    Tuple{Vector{String}, Vector{Int}, Vector{Int}, Vector{Int}, Vector{Int}, Vector{Int},
+          Vector{Int}, Vector{Union{Missing,Int}}, Vector{Bool}}}
+
+"""
+Merged reads: `sequences`/`counts` of accepted merges (identical sequences
+summed), read totals `accepted`/`rejected` (rejected includes reads whose
+forward or reverse read was not assigned) and every ASV pair in `pairs`,
+sorted by decreasing abundance (unmerged pairs have an empty sequence).
+"""
 struct MergeResult
     sequences::Vector{String}
     counts::Vector{Int}
     accepted::Int
     rejected::Int
+    pairs::MergeTable
 end
+MergeResult(sequences, counts, accepted, rejected) =
+    MergeResult(sequences, counts, accepted, rejected,
+                MergeTable((String[], Int[], Int[], Int[], Int[], Int[], Int[], Union{Missing,Int}[], Bool[])))
 
 Base.@kwdef struct FilterOptions
     trimLeft::Int = 0
@@ -136,6 +181,7 @@ Base.@kwdef struct FilterOptions
     maxEE::Float64 = 2.0
     minLen::Int = 20
     maxLen::Int = typemax(Int)
+    rmPhix::Bool = true  # discard reads matching phiX (R `rm.phix`)
 end
 struct FilterStats
     reads_in::Int

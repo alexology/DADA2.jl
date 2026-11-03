@@ -5,7 +5,7 @@ const DEFAULTS = Dict(
     "trunc-f"=>"0", "trunc-r"=>"0", "trim-left-f"=>"0", "trim-left-r"=>"0",
     "max-ee-f"=>"2", "max-ee-r"=>"2", "trunc-q"=>"2", "min-len"=>"20",
     "min-overlap"=>"12", "min-asv-length"=>"1", "max-asv-length"=>"0",
-    "max-iter"=>"10", "quality-mode"=>"raw", "chimera-method"=>"consensus")
+    "max-iter"=>"10", "quality-mode"=>"mean", "chimera-method"=>"consensus")
 
 function usage()
     println("""
@@ -28,8 +28,8 @@ function usage()
     --min-asv-length N        Minimum ASV length (default 1).
     --max-asv-length N        Maximum ASV length; 0 = no limit.
     --max-iter N              Maximum learning iterations (default 10).
-    --quality-mode raw|mean   Original or mean qualities (default raw).
-    --chimera-method consensus|pooled   Chimera method (default consensus).
+    --quality-mode mean|raw   Transitions at mean (R, default) or original qualities.
+    --chimera-method consensus|pooled|per-sample   Chimera method (default consensus).
     --help                    Show this message.
     """)
 end
@@ -62,7 +62,8 @@ function options(args)
         value !== nothing && isfinite(value) && value >= 0 || error("--$key requires a finite non-negative number.")
     end
     config["quality-mode"] in ("raw","mean") || error("--quality-mode must be raw or mean.")
-    config["chimera-method"] in ("consensus","pooled") || error("--chimera-method must be consensus or pooled.")
+    config["chimera-method"] in ("consensus","pooled","per-sample") ||
+        error("--chimera-method must be consensus, pooled or per-sample.")
     config
 end
 
@@ -201,7 +202,7 @@ function main(args)
     minlen = parse(Int,config["min-asv-length"]); maxlen = parse(Int,config["max-asv-length"])
     keep = findall(s -> length(s) >= minlen && (maxlen == 0 || length(s) <= maxlen),alltable.sequences)
     lengthtable = SequenceTable(alltable.samples,alltable.sequences[keep],alltable.counts[:,keep])
-    clean = removeBimeraDenovo(lengthtable;method=Symbol(config["chimera-method"]))
+    clean = removeBimeraDenovo(lengthtable;method=Symbol(replace(config["chimera-method"],"-"=>"_")))
     idmap = Dict(zip(alltable.sequences,ids)); cleanids = [idmap[s] for s in clean.sequences]
     writeFasta(joinpath(out,"asvs.fasta"),clean.sequences;ids=cleanids)
     writecounts(joinpath(out,"asv_counts.tsv"),clean,cleanids)

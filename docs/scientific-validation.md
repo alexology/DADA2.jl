@@ -1,5 +1,10 @@
 # Preliminary scientific validation — DADA2.jl 0.2.0
 
+> **Historical page.** It describes DADA2.jl 0.2.0, whose denoising, error
+> learning, merging and chimera detection were independent approximations of
+> DADA2. The current code translates DADA2 1.36.0 and gives R's results: see
+> [r-parity.md](r-parity.md). The scripts cited here need commit `baad0fd`.
+
 This report preserves the 0.2.0 results. The filter fix and the subsequent
 comparison in 0.2.1 are described in [release-0.2.1.md](release-0.2.1.md).
 

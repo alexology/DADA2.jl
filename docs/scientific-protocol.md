@@ -1,5 +1,10 @@
 # Scientific validation protocol
 
+> **Historical page.** It describes DADA2.jl 0.2.0, whose denoising, error
+> learning, merging and chimera detection were independent approximations of
+> DADA2. The current code translates DADA2 1.36.0 and gives R's results: see
+> [r-parity.md](r-parity.md). The scripts cited here need commit `baad0fd`.
+
 Date: 10 October 2026. Code DADA2.jl 0.2.0; R reference DADA2 1.36.0.
 Parameters were defined in the scripts before the results were analysed; no
 change to the denoiser or the thresholds will be made to improve these results.

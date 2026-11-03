@@ -6,13 +6,23 @@ struct TaxonomyModel
     postings::Dict{UInt32,Vector{Pair{Int,Float64}}}
 end
 
-"Train once and reuse the sparse classifier across samples or batches."
+"""Train once and reuse the sparse classifier across samples or batches.
+Headers contain contiguous semicolon-separated ranks. Trailing empty ranks
+are allowed; an empty internal rank is rejected to prevent shifting labels.
+"""
 function trainTaxonomy(reference::AbstractString; k=8)
     1 <= k <= 10 || throw(ArgumentError("Invalid taxonomy k"))
     fasta = readFasta(reference)
     isempty(fasta.ids) && throw(ArgumentError("Empty taxonomy reference"))
-    labels = [filter(!isempty,strip.(split(id,';'))) for id in fasta.ids]
-    any(isempty,labels) && throw(ArgumentError("Empty taxonomy label"))
+    labels = map(fasta.ids) do id
+        fields = strip.(split(id,';'))
+        last_rank = findlast(!isempty,fields)
+        last_rank === nothing && throw(ArgumentError("Empty taxonomy label"))
+        path = fields[1:last_rank]
+        any(isempty,path) && throw(ArgumentError(
+            "Empty internal taxonomy rank in header $(repr(id)); provide contiguous ranks"))
+        String.(path)
+    end
     # Group identical full taxonomic paths so scores do not depend on record order.
     paths = sort!(unique(join.(labels,";")))
     index = Dict(p => i for (i,p) in enumerate(paths))

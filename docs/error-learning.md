@@ -1,5 +1,10 @@
 # Error learning — DADA2.jl 0.3.0
 
+> Historical note: this page describes the 0.3.0 learner, which has been
+> removed: `learnErrors` now reproduces R `learnErrors` (see the README); only
+> the counting at original qualities remains, as `qualityMode=:raw`. The
+> options, scripts and results cited here need commit `baad0fd`.
+
 0.3.0 improves the estimation of substitution probabilities, distinguishes
 convergence from data support, and makes it possible to learn a model shared
 across samples while keeping the original FASTQ qualities.
@@ -78,7 +83,7 @@ guarantee biological accuracy.
 
 For comparisons with the previous version, `smoother=:linear` is available.
 To reproduce the old learning from files, use both options:
-`learnErrors(path; smoother=:linear, qualityMode=:mean)`.
+`learnErrors(path; upstream=false, smoother=:linear, qualityMode=:mean)`.
 
 ## Comparison with known ground truth
 

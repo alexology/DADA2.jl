@@ -67,6 +67,7 @@ function filtered(r::FastqRecord, o::FilterOptions)
     count(==('N'), seq) <= o.maxN || return nothing
     q = @view r.quality[first:last]
     expectedErrors(q) <= o.maxEE || return nothing
+    o.rmPhix && is_phix(seq) && return nothing
     FastqRecord(r.id, seq, q)
 end
 # On a case-insensitive file system (Windows, macOS by default) names that
@@ -202,19 +203,24 @@ mutable struct DerepBuilder
     sequences::Vector{String}
     counts::Vector{Int}
     quality_sums::Vector{Vector{Float64}}
+    first_read::Vector{Int}  # read number of the first occurrence
     mapping::Vector{Int}
     keepmap::Bool
+    reads::Int
+    chunk::Int
 end
-DerepBuilder(;keepmap=true) = DerepBuilder(Dict{String,Int}(), String[], Int[],
-                                           Vector{Float64}[], Int[], keepmap)
+DerepBuilder(;keepmap=true, n=1_000_000) =
+    DerepBuilder(Dict{String,Int}(), String[], Int[], Vector{Float64}[], Int[], Int[], keepmap, 0, n)
 
 function add_read!(builder::DerepBuilder, read::FastqRecord)
     seq = validated_dna(read.sequence)
+    builder.reads += 1
     i = get(builder.index, seq, 0)
     if i == 0
         push!(builder.sequences, seq)
         push!(builder.counts, 0)
         push!(builder.quality_sums, zeros(length(read.quality)))
+        push!(builder.first_read, builder.reads)
         i = length(builder.sequences)
         builder.index[seq] = i
     end
@@ -224,39 +230,36 @@ function add_read!(builder::DerepBuilder, read::FastqRecord)
     builder
 end
 
+"""
+Uniques in the order of R `derepFastq`: decreasing abundance; ties in order of
+the chunk of `n` reads where the sequence first appears, then alphabetically
+(each chunk is tabulated sorted by sequence). The read map follows the order.
+"""
 function finish(builder::DerepBuilder)
-    qualities = [s ./ builder.counts[i] for (i,s) in enumerate(builder.quality_sums)]
-    Derep(builder.sequences, builder.counts, qualities, builder.mapping)
+    order = sortperm(eachindex(builder.sequences);
+        by=i -> (-builder.counts[i], (builder.first_read[i]-1) ÷ builder.chunk, builder.sequences[i]))
+    rank = invperm(order)
+    qualities = [builder.quality_sums[i] ./ builder.counts[i] for i in order]
+    Derep(builder.sequences[order], builder.counts[order], qualities, rank[builder.mapping])
 end
 
-function dereplicate(records; keepmap=true)
-    builder = DerepBuilder(;keepmap)
+"""
+    dereplicate(records; keepmap=true, n=1_000_000)
+
+Unique sequences with counts, mean qualities and, with `keepmap`, the unique
+of each read; ordered as R `derepFastq` with chunks of `n` reads.
+"""
+function dereplicate(records; keepmap=true, n=1_000_000)
+    n >= 1 || throw(ArgumentError("n must be positive"))
+    builder = DerepBuilder(;keepmap, n)
     foreach(read -> add_read!(builder,read), records)
     finish(builder)
 end
 
-"Dereplicate a whole-read prefix containing at least `target_bases` bases."
-function dereplicate_prefix(path::AbstractString, target_bases::Integer)
-    target_bases > 0 || throw(ArgumentError("target_bases must be positive"))
-    builder = DerepBuilder(;keepmap=false)
-    reads = bases = 0
+function derepFastq(path::AbstractString; keepmap=true, n=1_000_000)
     reader = FastqReader(path)
     try
-        for read in reader
-            add_read!(builder,read)
-            reads += 1
-            bases += length(read.quality)
-            bases >= target_bases && break
-        end
-    finally
-        close(reader)
-    end
-    finish(builder), reads, bases
-end
-function derepFastq(path::AbstractString; keepmap=true)
-    reader = FastqReader(path)
-    try
-        dereplicate(reader; keepmap)
+        dereplicate(reader; keepmap, n)
     finally
         close(reader)
     end

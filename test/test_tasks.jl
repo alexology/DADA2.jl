@@ -18,14 +18,14 @@ end
         @test_skip "requires two threads"
     else
         mktempdir() do dir
-            bad = fixture(["ACGT"], [2]; q = 40)
-            good = fixture(["TGCA"], [2]; q = 10)
+            bad = fixture(["ACGTACGTAC"], [2]; q = 40)
+            good = fixture(["TGCATGCATG"], [2]; q = 10)
             records = [bad, good]
             results = dada(records; threaded = false)
             path = joinpath(dir, "good.fastq")
             write(path, "@one\nTGCA\n+\n++++\n@two\nTGCA\n+\n++++\n")
-            sources = [DADA2.ErrorTrainingSource(joinpath(dir, "missing.fastq"), 2, 8),
-                       DADA2.ErrorTrainingSource(path, 2, 8)]
+            sources = [DADA2.ErrorTrainingSource(joinpath(dir, "missing.fastq"), 2, 20),
+                       DADA2.ErrorTrainingSource(path, 2, 20)]
             for raw in (false, true)
                 gated = GatedSamples(records, Channel{Int}(2),
                                      [Channel{Nothing}(1) for _ in 1:2],

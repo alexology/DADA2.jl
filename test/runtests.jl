@@ -230,15 +230,9 @@ end
     @test_throws ArgumentError dada(d,phredErrors(maxQ=30))
     @test_throws ArgumentError dada(Derep(["ACGT"],[1],[fill(38.5,4)]),phredErrors(maxQ=38))
     @test_throws ArgumentError ErrorModel(ones(16,41))
-    learned = learnErrors([d];maxIter=3)
-    @test learned.iterations <= 3
-    @test all(isfinite,learned.errors.rates)
-    @test all(q -> all(b -> sum(learned.errors.rates[4b+1:4b+4,q]) ≈ 1,0:3),1:94)
-    @test sum(dada(d,learned).counts) == 1101
+    # One observed quality: no LOESS is possible, in R as here.
+    @test_throws ArgumentError learnErrors([d];maxIter=3)
     @test_throws ArgumentError learnErrors(Derep[])
-    zero_rates = copy(phredErrors().rates)
-    zero_rates[1,1] = 0; zero_rates[2,1] = 0.5
-    @test all(isfinite,learnErrors(d;initial=ErrorModel(zero_rates),maxIter=2).history)
     residual = fixture([repeat("A",32),repeat("C",32)],[100,1])
     strict = dada(residual)
     @test strict.rejected == 1
@@ -252,6 +246,8 @@ end
 end
 
 include("error_learning.jl")
+include("test_core.jl")
+include("test_pipeline.jl")
 
 @testset "Pair merging and community tables" begin
     f = "AAAACCCCGGGG"; r = reverseComplement("CCCCGGGGTTTT")
@@ -264,27 +260,36 @@ include("error_learning.jl")
     @test mergePairs(dada(fd),dada(rd);minOverlap=13).rejected == 3
     table = makeSequenceTable([merged,merged];samples=["A","B"])
     @test table.counts == reshape([3,3],2,1)
-    p1 = "AAAAAAAAAAAAAAAA"; p2 = "CCCCCCCCCCCCCCCC"; chim = "AAAAAAAACCCCCCCC"
-    @test isBimeraDenovo(chim,[p1,p2])
-    @test !isBimeraDenovo(chim,[p1])
-    @test !isBimeraDenovo(p1,[p1,p2])
+    p1 = "ACGTTGCAAGCTTGACCTAGGATCCAGTCAGTTACGGATC"
+    p2 = "TTGACCAGTCAGATCGGCATGCAAGTACCGTAGCTAGCAT"
+    chim = p1[1:20]*p2[21:40]
+    @test isBimera(chim,[p1,p2])
+    @test !isBimera(chim,[p1])
+    @test !isBimera(p1,[p1,p2])
+    @test isBimeraDenovo([p1,p2,chim],[100,80,5]) == [false,false,true]
     table = SequenceTable(["a","b"],[p1,p2,chim],[100 80 5; 100 80 4])
     clean = removeBimeraDenovo(table)
     @test clean.sequences == [p1,p2]
     @test removeBimeraDenovo(table;method=:pooled).counts == clean.counts
-    rng = MersenneTwister(13)
-    for _ in 1:40
-        parents = [String(rand(rng,UInt8.(['A','C','G','T']),24)) for _ in 1:8]
-        splitpos = rand(rng,8:16)
-        query = parents[1][1:splitpos]*parents[2][splitpos+1:end]
-        expected = any(i != j && parents[i] != query && parents[j] != query &&
-            parents[i][1:cut] == query[1:cut] && parents[j][cut+1:end] == query[cut+1:end]
-            for i in eachindex(parents),j in eachindex(parents),cut in 8:16)
-        @test isBimeraDenovo(query,parents) == expected
-    end
+    @test removeBimeraDenovo(table;method=:per_sample).counts == clean.counts
+    @test_throws ArgumentError removeBimeraDenovo(table;method=:unknown)
 end
 
 @testset "Taxonomy and FASTA" begin
+    mktempdir() do dir
+        path = joinpath(dir, "ranks.fasta")
+        seq = repeat("ACGTACCA", 10)
+        for header in ("Kingdom;;Class;Order;Family;Genus;Genus_species;",
+                       "Kingdom; ;Class;", ";Phylum;Class;", ";;;")
+            writeFasta(path, [seq]; ids = [header])
+            @test_throws ArgumentError trainTaxonomy(path; k = 4)
+            rm(path)
+        end
+        writeFasta(path, [seq]; ids = ["Kingdom;Phylum;Class;Order;Family;Genus;Genus_species;;; "])
+        model = trainTaxonomy(path; k = 4)
+        @test only(model.taxonomy) == ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Genus_species"]
+        @test size(assignTaxonomy([seq], model; nBoot = 10).taxa) == (1, 7)
+    end
     mktempdir() do dir
         ref = joinpath(dir,"tax.fa.gz")
         writeFasta(ref,[repeat("A",60),repeat("C",60)];ids=["Bacteria;Alpha;GenusA;","Bacteria;Beta;GenusB;"])

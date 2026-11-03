@@ -18,187 +18,156 @@ function abundance_logp(reads::Int, expected::Float64; prior=false)
 end
 abundancePvalue(reads::Integer, expected::Real; prior=false) = exp(abundance_logp(Int(reads), Float64(expected); prior))
 
-function transition_logprob(ref, query, qualities, err, mapping)
-    a = codeunits(ref); b = codeunits(query)
-    lp = 0.0
-    for pos in eachindex(b)
-        from = mapping[pos] == 0 ? baseindex(b[pos]) : baseindex(a[mapping[pos]])
-        to = baseindex(b[pos]); q = floor(Int, qualities[pos]+0.5) + 1
-        lp += err.logrates[4(from-1)+to,q]
+"""
+    dada(derep, err; omegaA=1e-40, omegaP=1e-4, omegaC=1e-40, priors=String[], ...)
+
+Divisive partitioning of the unique sequences, ported from the DADA2 1.36.0
+C++ core with the defaults of `setDadaOpt`: ends-free banded alignment
+(`band=16`, `match=5`, `mismatch=-4`, `gap=-8`), k-mer screen
+(`kdistCutoff=0.42`), gapless shortcut, greedy locking, abundance p-values
+with Bonferroni correction and the final `omegaC` correction. Reads whose
+uniques fail the final test are left unassigned (`assignments` zero).
+`homopolymerGap` enables homopolymer gap penalties (non-vectorized aligner);
+`minFold`, `minHamming` and `minAbundance` restrict which sequences can start
+a new partition. `converged` is false when the maximum number of shuffles or
+`maxClusters` stopped the algorithm early.
+"""
+function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4, omegaC=1e-40,
+              priors=String[], detectSingletons=false, band=16, useKmers=true,
+              kdistCutoff=0.42, maxClusters=0, match=5, mismatch=-4, gap=-8,
+              homopolymerGap=nothing, vectorizedAlignment=true, gapless=true, greedy=true,
+              minFold=1, minHamming=1, minAbundance=1, threaded=true,
+              cacheAlignments=true, _cache=nothing)
+    0 < omegaA <= 1 && 0 < omegaP <= 1 && 0 <= omegaC <= 1 && 0 <= kdistCutoff <= 1 &&
+        maxClusters >= 0 && match > 0 && mismatch <= 0 && minFold >= 0 &&
+        all(x -> abs(x) <= 1000, (match, mismatch, gap)) ||
+        throw(ArgumentError("Invalid inference options"))
+    # Positive penalties are negated, as in R.
+    gap = -abs(Int(gap))
+    homo = homopolymerGap === nothing ? gap : -abs(Int(homopolymerGap))
+    abs(homo) <= 1000 || throw(ArgumentError("Invalid inference options"))
+    vectorized = vectorizedAlignment && homo == gap && band != 0
+    maxq = size(err.rates,2)-1
+    all(q -> all(x -> round(Int, x, RoundNearestTiesAway) <= maxq, q), d.qualities) ||
+        throw(ArgumentError("Error model does not cover read qualities"))
+    n = length(d.sequences)
+    n == 0 && return DadaResult(String[], Int[], Int[], d, zeros(Int,size(err.rates)), err, true, 0, 0,
+                                empty_clustering())
+    all(s -> KMER_SIZE < ncodeunits(s) < 9999, d.sequences) ||
+        throw(ArgumentError("Sequences must be longer than $KMER_SIZE and shorter than 9999 bases"))
+    cache = _cache === nothing ? InferenceCache(d; useKmers, cacheAlignments) : _cache
+    options = AlignOptions(match, mismatch, gap, homo, Int(band), useKmers, kdistCutoff,
+                           vectorized, gapless)
+    check_cache!(cache, d, options, cacheAlignments)
+    prior_set = Set(validated_dna.(priors))
+    order = cache.order
+    b = Partition(cache.raws, d.counts[order], [d.sequences[i] in prior_set for i in order],
+                  Float64(omegaA), Float64(omegaP))
+    o = DadaOptions(options, err.rates, greedy, detectSingletons, Float64(minFold),
+                    Int(minHamming), Int(minAbundance), threaded)
+    converged = run_dada!(b, cache, o, Int(maxClusters))
+
+    # Final alignments with each center, then the unconditional correction test.
+    members = [(c.center, r) for c in b.clusters for r in c.raws]
+    subs = Vector{Sub}(undef, n)
+    foreach_scratch(length(members), threaded) do scratch, k
+        center, r = members[k]
+        subs[r] = final_sub(b, cache, o, center, r, scratch)
     end
-    lp
-end
-
-const CachedMapping = Union{Nothing,Vector{Int}}
-const CenterMappings = Vector{CachedMapping}
-
-"Reusable, training-local sequence features and pairwise alignment mappings."
-mutable struct InferenceCache
-    spectra::Vector{Vector{UInt32}}
-    mappings::Vector{Union{Nothing,CenterMappings}}
-    band::Int
-    cache_alignments::Bool
-end
-
-function InferenceCache(d::Derep; useKmers=true, band=16, cacheAlignments=true)
-    spectra = useKmers ? kmers.(d.sequences) : Vector{UInt32}[]
-    mappings = Vector{Union{Nothing,CenterMappings}}(nothing,length(d.sequences))
-    InferenceCache(spectra,mappings,band,cacheAlignments)
-end
-
-function cached_mapping!(cache::InferenceCache, d::Derep, center::Int, query::Int)
-    center == query && return nothing
-    cache.cache_alignments ||
-        return alignSequences(d.sequences[center],d.sequences[query];band=cache.band).mapping
-    mappings = cache.mappings[center]
-    if mappings === nothing
-        mappings = CenterMappings(nothing,length(d.sequences))
-        cache.mappings[center] = mappings
+    for c in b.clusters, r in c.raws
+        if r == c.center
+            b.p[r] = 1.0
+        else
+            b.p[r] = calc_pA(b.reads[r], b.comp[r].lambda * c.reads, true)
+            b.p[r] < omegaC && (b.correct[r] = false)
+        end
     end
-    mapping = mappings[query]
-    if mapping === nothing
-        mapping = alignSequences(d.sequences[center],d.sequences[query];band=cache.band).mapping
-        mappings[query] = mapping
+
+    nclust = length(b.clusters)
+    representative = zeros(Int, nclust); totals = zeros(Int, nclust)
+    assignments = zeros(Int, n); rejected = 0
+    trans = zeros(Int, size(err.rates))
+    for (i, c) in enumerate(b.clusters)
+        max_reads = 0
+        center = b.raws[c.center]
+        for r in c.raws
+            if b.reads[r] > max_reads
+                representative[i] = r; max_reads = b.reads[r]
+            end
+            if !b.correct[r]
+                rejected += b.reads[r]
+                continue
+            end
+            totals[i] += b.reads[r]; assignments[order[r]] = i
+            raw = b.raws[r]; map = subs[r].map
+            for pos0 in eachindex(center.seq)
+                pos1 = map[pos0]
+                pos1 == 0 && continue
+                t = 4*(center.seq[pos0]-1) + raw.seq[pos1]
+                trans[t, raw.qual[pos1]+1] += b.reads[r]
+            end
+        end
+    end
+    sequences = [d.sequences[order[r]] for r in representative]
+    table = clustering_table(b, cache, o, subs, sequences, totals)
+    ranked = sortperm(1:nclust; by=i -> (-totals[i], sequences[i]))
+    inverse = invperm(ranked)
+    remapped = [i == 0 ? 0 : inverse[i] for i in assignments]
+    DadaResult(sequences[ranked], totals[ranked], remapped, d, trans, err, converged, b.nalign, rejected,
+               select_clustering(table, ranked, inverse))
+end
+
+"Upstream `b_make_clustering_df`, partitions in order of birth."
+function clustering_table(b::Partition, cache::InferenceCache, o::DadaOptions, subs, sequences, totals)
+    nclust = length(b.clusters)
+    n0 = zeros(Int, nclust); n1 = zeros(Int, nclust); nunq = zeros(Int, nclust)
+    for (i, c) in enumerate(b.clusters), r in c.raws
+        b.correct[r] || continue
+        nunq[i] += 1
+        k = nsubs(subs[r])
+        k == 0 && (n0[i] += b.reads[r])
+        k == 1 && (n1[i] += b.reads[r])
+    end
+    # Post-hoc p-value: reads expected at each centre from the other partitions.
+    center_of = Dict(c.center => i for (i, c) in enumerate(b.clusters))
+    expected = zeros(nclust)
+    for (i, c) in enumerate(b.clusters), comp in c.comps
+        j = get(center_of, Int(comp.index), 0)
+        j != 0 && j != i && (expected[j] += comp.lambda * c.reads)
+    end
+    pval = [calc_pA(b.reads[c.center], expected[i], true) for (i, c) in enumerate(b.clusters)]
+    birth_from = Union{Missing,Int}[missing]; birth_pval = Union{Missing,Float64}[missing]
+    birth_fold = Union{Missing,Float64}[missing]; birth_ham = Union{Missing,Int}[missing]
+    birth_qave = Union{Missing,Float64}[missing]
+    for c in b.clusters[2:end]
+        parent = b.clusters[c.birth_comp.i].center
+        sub = sub_new(b.raws[parent], b.raws[c.center], o.align, o.align.use_kmers, 1.0)
+        qave = 0.0
+        if sub !== nothing
+            q = b.raws[c.center].qual
+            qave = sum(Float64(q[sub.map[p]]) for p in sub.pos; init=0.0) / nsubs(sub)
+        end
+        push!(birth_from, c.birth_from); push!(birth_pval, c.birth_pval)
+        push!(birth_fold, c.birth_fold); push!(birth_ham, c.birth_comp.hamming)
+        push!(birth_qave, qave)
+    end
+    ClusteringTable((sequences, totals, n0, n1, nunq, pval, birth_from, birth_pval, birth_fold,
+                     birth_ham, birth_qave))
+end
+
+"Query position → center position (0 for an insertion), from processing indices."
+function center_mapping(cache::InferenceCache, c::Int, r::Int)
+    cache.options === nothing && throw(ArgumentError("Inference cache was not used"))
+    entry = cache.final[r]
+    sub = entry !== nothing && entry[1] == c ? entry[2] :
+          sub_new(cache.raws[c], cache.raws[r], cache.options, false, 1.0)
+    mapping = zeros(Int, length(cache.raws[r].seq))
+    for (pos0, pos1) in enumerate(sub.map)
+        pos1 == 0 || (mapping[pos1] = pos0)
     end
     mapping
 end
 
-"Infer variants by repeated abundance tests and likelihood-based repartitioning."
-function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4, omegaC=1e-40,
-              priors=String[], detectSingletons=false, band=16, useKmers=true,
-              kdistCutoff=0.42, maxClusters=0, maxConsist=20, threaded=true,
-              cacheAlignments=true, _cache=nothing)
-    0 < omegaA <= 1 && 0 < omegaP <= 1 && 0 <= omegaC <= 1 && 0 <= kdistCutoff <= 1 &&
-        band >= 0 && maxClusters >= 0 && maxConsist >= 1 || throw(ArgumentError("Invalid inference options"))
-    maxq = size(err.rates,2)-1
-    all(q -> all(x -> floor(Int,x+0.5) <= maxq, q), d.qualities) || throw(ArgumentError("Error model does not cover read qualities"))
-    n = length(d.sequences)
-    n == 0 && return DadaResult(String[], Int[], Int[], d, zeros(Int,size(err.rates)), err, true, 0, 0)
-    prior_set = Set(validated_dna.(priors))
-    centers = [sortperm(1:n; by=i -> (-d.counts[i], d.sequences[i]))[1]]
-    iscenter = falses(n); iscenter[centers[1]] = true
-    assignments = ones(Int,n); totals = [sum(d.counts)]
-    cache = _cache === nothing ? InferenceCache(d;useKmers,band,cacheAlignments) : _cache
-    cache.band == band && length(cache.mappings) == n &&
-        cache.cache_alignments == cacheAlignments &&
-        (!useKmers || length(cache.spectra) == n) || throw(ArgumentError("Invalid inference cache"))
-    spectra = cache.spectra
-    # One vector per discovered center; never allocate an n × n distance matrix.
-    probabilities = Vector{Float64}[]
-    comparison_count = 0
-    function compare_center(center)
-        out = fill(-Inf, n)
-        # Allocate the center row before entering the threaded loop. Each
-        # worker then owns a distinct query slot in that row.
-        cache.cache_alignments && cache.mappings[center] === nothing &&
-            (cache.mappings[center] = CenterMappings(nothing,n))
-        function compare(i)
-            if center == i
-                out[i] = transition_logprob(d.sequences[i],d.sequences[i],d.qualities[i],err,eachindex(d.qualities[i]))
-                return
-            end
-            if useKmers && center != i && kmer_distance(spectra[center], spectra[i]) > kdistCutoff
-                return
-            end
-            mapping = cached_mapping!(cache,d,center,i)
-            out[i] = transition_logprob(d.sequences[center], d.sequences[i], d.qualities[i], err, mapping)
-        end
-        if threaded && n >= 64 && Threads.nthreads() > 1
-            Threads.@threads for i in 1:n
-                compare(i)
-            end
-        else
-            for i in 1:n
-                compare(i)
-            end
-        end
-        out
-    end
-    push!(probabilities, compare_center(centers[1])); comparison_count += n
-    converged = true
-    while true
-        candidate = 0; bestp = Inf
-        for i in 1:n
-            iscenter[i] && continue
-            prior = d.sequences[i] in prior_set
-            d.counts[i] == 1 && !prior && !detectSingletons && continue
-            c = assignments[i]
-            lp = probabilities[c][i]
-            expected = exp(lp + log(totals[c]))
-            p = abundance_logp(d.counts[i], expected; prior=prior || detectSingletons)
-            threshold = prior ? log(omegaP) : log(omegaA)-log(n)
-            if p < threshold && (p < bestp || (p == bestp && (candidate == 0 || d.counts[i] > d.counts[candidate])))
-                candidate = i; bestp = p
-            end
-        end
-        candidate == 0 && break
-        if maxClusters > 0 && length(centers) >= maxClusters
-            converged = false; break
-        end
-        push!(centers, candidate); push!(probabilities, compare_center(candidate)); comparison_count += n
-        iscenter[candidate] = true
-        assignments[candidate] = length(centers)
-        totals = zeros(Int,length(centers))
-        for i in 1:n
-            totals[assignments[i]] += d.counts[i]
-        end
-        stable = false
-        for _ in 1:maxConsist
-            next = copy(assignments)
-            logtotals = log.(totals)
-            for i in 1:n
-                iscenter[i] && continue
-                best = -Inf
-                for c in eachindex(centers)
-                    e = probabilities[c][i] + logtotals[c]
-                    if e > best
-                        best = e; next[i] = c
-                    end
-                end
-            end
-            if next == assignments
-                stable = true; break
-            end
-            assignments = next; fill!(totals,0)
-            for i in 1:n
-                totals[assignments[i]] += d.counts[i]
-            end
-        end
-        converged &= stable
-        !stable && break
-    end
-    # Final unconditional abundance test: unsupported residual reads remain
-    # unassigned (zero), as in upstream OMEGA_C error correction.
-    rejected = 0
-    output_totals = zeros(Int,length(centers))
-    for i in 1:n
-        c = assignments[i]
-        expected = exp(probabilities[c][i] + log(totals[c]))
-        if !iscenter[i] && omegaC > 0 && abundance_logp(d.counts[i],expected;prior=true) < log(omegaC)
-            rejected += d.counts[i]; assignments[i] = 0
-        else
-            output_totals[c] += d.counts[i]
-        end
-    end
-    totals = output_totals
-    trans = zeros(Int, size(err.rates))
-    for i in 1:n
-        assignments[i] == 0 && continue
-        ref = d.sequences[centers[assignments[i]]]
-        center = centers[assignments[i]]
-        mapping = iscenter[i] ? eachindex(d.qualities[i]) : cached_mapping!(cache,d,center,i)
-        for pos in eachindex(mapping)
-            mapping[pos] == 0 && continue
-            from = baseindex(codeunit(ref, mapping[pos])); to = baseindex(codeunit(d.sequences[i],pos))
-            q = floor(Int,d.qualities[i][pos]+0.5)+1
-            trans[4(from-1)+to,q] += d.counts[i]
-        end
-    end
-    order = sortperm(eachindex(centers); by=c -> (-totals[c], d.sequences[centers[c]]))
-    inverse = invperm(order)
-    remapped = [c == 0 ? 0 : inverse[c] for c in assignments]
-    DadaResult(d.sequences[centers[order]], totals[order], remapped, d, trans, err, converged, comparison_count, rejected)
-end
 dada(d::Derep, err::AbstractMatrix; kwargs...) = dada(d, ErrorModel(err); kwargs...)
 dada(path::AbstractString, err=phredErrors(); kwargs...) = dada(derepFastq(path), err; kwargs...)
 # Always finish sibling tasks before returning or propagating their first error.
@@ -215,15 +184,106 @@ function wait_all(tasks)
     nothing
 end
 
-function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); threaded=true,
-              _caches=nothing, kwargs...)
+"""
+    dada(samples, err; pool=false, priors=String[], pseudoPrevalence=2, pseudoAbundance=Inf, ...)
+
+Infer each sample. `pool=true` denoises the pooled uniques once (R's
+`combineDereps2`) and returns each sample's share of the pooled partitions;
+`pool=:pseudo` first infers each sample, then infers again with the ASVs found
+in at least `pseudoPrevalence` samples or `pseudoAbundance` reads as priors.
+As in R, that second pass uses the error model re-estimated by `loessErrfun`
+from the transitions of the first pass, not `err`.
+"""
+function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); pool=false,
+              priors=String[], pseudoPrevalence=2, pseudoAbundance=Inf, kwargs...)
+    pool in (false, true, :pseudo) || throw(ArgumentError("pool must be false, true or :pseudo"))
+    length(samples) <= 1 && (pool = false)
+    if pool === true
+        haskey(kwargs, :_caches) && throw(ArgumentError("Pooled inference does not use sample caches"))
+        pooled, index = pool_dereps(samples)
+        return split_pooled(dada(pooled, err; priors, kwargs...), samples, index)
+    end
+    results = dada_each(samples, fill(err, length(samples)); priors, kwargs...)
+    pool === :pseudo || return results
+    pseudoPrevalence >= 0 && pseudoAbundance >= 0 || throw(ArgumentError("Invalid pseudo-pooling options"))
+    prevalence = Dict{String,Int}(); abundance = Dict{String,Int}()
+    for r in results, (sequence, count) in zip(r.sequences, r.counts)
+        count > 0 || continue
+        prevalence[sequence] = get(prevalence, sequence, 0) + 1
+        abundance[sequence] = get(abundance, sequence, 0) + count
+    end
+    pseudo = [s for s in keys(prevalence) if prevalence[s] >= pseudoPrevalence || abundance[s] >= pseudoAbundance]
+    # As upstream, the second pass uses the error model re-estimated with
+    # loessErrfun from the transitions of the first pass.
+    err2 = r_loess_errors(accumulate_transitions(results), nothing)
+    errs = [widen_errors(err2, ceil(Int, maximum(maximum, d.qualities; init=0.0))) for d in samples]
+    dada_each(samples, errs; priors=vcat(collect(priors), sort!(pseudo)), kwargs...)
+end
+
+"R `accumulateTrans`: transition counts summed, columns padded to the widest."
+function accumulate_transitions(results)
+    trans = zeros(Int, 16, maximum(r -> size(r.transitions, 2), results))
+    for r in results
+        trans[:, 1:size(r.transitions, 2)] .+= r.transitions
+    end
+    trans
+end
+
+"R's extension of an error model to quality `q`: the last column is repeated."
+widen_errors(err::ErrorModel, q::Int) = size(err.rates, 2) >= q + 1 ? err :
+    ErrorModel(hcat(err.rates, repeat(err.rates[:, end:end], 1, q + 1 - size(err.rates, 2))))
+
+"Upstream `combineDereps2`: summed counts, weighted mean qualities, by decreasing abundance."
+function pool_dereps(samples::AbstractVector{Derep})
+    # Each sample in its processing order (decreasing abundance, as R derep objects).
+    sequences = String[]; position = Dict{String,Int}()
+    for d in samples, i in sortperm(1:length(d.sequences); by=i -> (-d.counts[i], i))
+        haskey(position, d.sequences[i]) && continue
+        push!(sequences, d.sequences[i]); position[d.sequences[i]] = length(sequences)
+    end
+    counts = zeros(Int, length(sequences))
+    sums = [zeros(ncodeunits(s)) for s in sequences]
+    for d in samples, i in sortperm(1:length(d.sequences); by=i -> (-d.counts[i], i))
+        j = position[d.sequences[i]]
+        counts[j] += d.counts[i]
+        sums[j] .+= d.qualities[i] .* d.counts[i]
+    end
+    qualities = [sums[j] ./ counts[j] for j in eachindex(sums)]
+    order = sortperm(1:length(sequences); by=j -> (-counts[j], j))
+    pooled = Derep(sequences[order], counts[order], qualities[order])
+    pooled, Dict(s => k for (k, s) in enumerate(pooled.sequences))
+end
+
+"R's expansion of a pooled result: the partitions holding each sample's reads."
+function split_pooled(pooled::DadaResult, samples, index)
+    map(samples) do d
+        counts = zeros(Int, length(pooled.sequences)); rejected = 0
+        for (i, s) in enumerate(d.sequences)
+            c = pooled.assignments[index[s]]
+            c == 0 ? (rejected += d.counts[i]) : (counts[c] += d.counts[i])
+        end
+        present = unique(c for c in (pooled.assignments[index[s]] for s in d.sequences) if c != 0)
+        kept = sort(present; by=c -> (-counts[c], pooled.sequences[c]))
+        renumber = zeros(Int, length(counts)); renumber[kept] = eachindex(kept)
+        assignments = [(c = pooled.assignments[index[s]]; c == 0 ? 0 : renumber[c]) for s in d.sequences]
+        table = select_clustering(pooled.clustering, kept, renumber)
+        table.abundance .= counts[kept]
+        DadaResult(pooled.sequences[kept], counts[kept], assignments, d, pooled.transitions,
+                   pooled.errors, pooled.converged, pooled.comparisons, rejected, table)
+    end
+end
+
+"Independent inference of each sample with its own error model."
+function dada_each(samples::AbstractVector{Derep}, errs::AbstractVector{ErrorModel}; threaded=true,
+                   _caches=nothing, kwargs...)
+    length(errs) == length(samples) || throw(ArgumentError("One error model per sample is required"))
     results = Vector{DadaResult}(undef,length(samples))
     caches = _caches === nothing ? fill(nothing,length(samples)) : _caches
     length(caches) == length(samples) || throw(ArgumentError("Invalid inference caches"))
     if threaded && Threads.nthreads() > 1 && length(samples) > 1
         # Independent tasks let the scheduler redistribute uneven samples.
         tasks = map(eachindex(samples)) do i
-            Threads.@spawn dada(samples[i],err;threaded=false,_cache=caches[i],kwargs...)
+            Threads.@spawn dada(samples[i],errs[i];threaded=false,_cache=caches[i],kwargs...)
         end
         wait_all(tasks)
         for i in eachindex(tasks)
@@ -234,11 +294,13 @@ function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); thr
         # threading for the comparisons inside `dada` instead of disabling it.
         inner_threaded = threaded && length(samples) == 1
         for i in eachindex(samples)
-            results[i] = dada(samples[i],err; threaded=inner_threaded,_cache=caches[i],kwargs...)
+            results[i] = dada(samples[i],errs[i]; threaded=inner_threaded,_cache=caches[i],kwargs...)
         end
     end
     results
 end
+
+const SMOOTHERS = (:loess, :direct, :linear)
 
 "Previous local linear estimator, retained for explicit scientific comparisons."
 function linear_fitted_errors(trans::Matrix{Int}, fallback::ErrorModel; span=0.75)
@@ -274,13 +336,25 @@ function linear_fitted_errors(trans::Matrix{Int}, fallback::ErrorModel; span=0.7
     ErrorModel(rates)
 end
 
-"Native direct quadratic LOESS; R's default uses an interpolated LOESS surface."
+"""
+Smoothed error rates from transition counts. `:loess` is DADA2's `loessErrfun`
+(R's interpolated LOESS surface); `:direct` fits the local quadratic at every
+quality (R's `surface="direct"`); `:linear` is the earlier local linear fit.
+"""
 function fitted_errors(trans::Matrix{Int}, fallback::ErrorModel; span=0.75, smoother=:loess)
     size(trans) == size(fallback.rates) && all(>=(0), trans) ||
         throw(ArgumentError("Invalid transition counts"))
     isfinite(span) && 0 < span <= 1 || throw(ArgumentError("Invalid smoothing span"))
-    smoother in (:loess, :linear) || throw(ArgumentError("smoother must be :loess or :linear"))
+    smoother in SMOOTHERS || throw(ArgumentError("smoother must be :loess, :direct or :linear"))
     smoother == :linear && return linear_fitted_errors(trans, fallback; span)
+    smoother == :loess &&
+        return r_loess_errors(trans, fallback; span, sparse=direct_fitted_errors(trans, fallback; span))
+    direct_fitted_errors(trans, fallback; span)
+end
+
+# R `loess(..., surface="direct")`; supports of at most three qualities are
+# interpolated linearly, where a local quadratic is not identifiable.
+function direct_fitted_errors(trans::Matrix{Int}, fallback::ErrorModel; span=0.75)
     rates = copy(fallback.rates)
     nq = size(trans, 2)
     for from in 1:4
@@ -366,6 +440,8 @@ function raw_transitions_sample!(trans, d, result, source::ErrorTrainingSource, 
         reference_indices[i] = index[result.sequences[c]]
     end
     seen = zeros(Int,length(d.sequences))
+    position = invperm(cache.order)
+    mappings = Vector{Union{Nothing,Vector{Int}}}(nothing,length(d.sequences))
     reader = FastqReader(source.path)
     nread = 0
     try
@@ -378,7 +454,10 @@ function raw_transitions_sample!(trans, d, result, source::ErrorTrainingSource, 
             if c != 0
                 ref = result.sequences[c]
                 center = reference_indices[i]
-                mapping = center == i ? nothing : cached_mapping!(cache,d,center,i)
+                if center != i && mappings[i] === nothing
+                    mappings[i] = center_mapping(cache,position[center],position[i])
+                end
+                mapping = center == i ? nothing : mappings[i]
                 for pos in eachindex(read.quality)
                     mapped = mapping === nothing ? pos : mapping[pos]
                     mapped == 0 && continue
@@ -419,34 +498,50 @@ function raw_transitions!(trans, samples, results, sources, caches; band=16, thr
     trans
 end
 
-function learn_errors(samples::AbstractVector{Derep}; initial=phredErrors(), maxIter=10, tolerance=1e-3,
-                      span=0.75, smoother=:loess, rawsources=nothing, omegaC=0.0, kwargs...)
-    !isempty(samples) && any(s -> !isempty(s.counts),samples) || throw(ArgumentError("Cannot learn from empty samples"))
-    maxIter >= 1 && isfinite(tolerance) && tolerance > 0 && isfinite(span) && 0 < span <= 1 &&
-        smoother in (:loess, :linear) || throw(ArgumentError("Invalid learning options"))
-    err = initial; history = Float64[]; converged = false
-    trans = zeros(Int,size(err.rates)); inference_converged = false
-    use_kmers = get(kwargs,:useKmers,true)
-    band = get(kwargs,:band,16)
-    cache_alignments = get(kwargs,:cacheAlignments,true)
-    caches = [InferenceCache(sample;useKmers=use_kmers,band,
-        cacheAlignments=cache_alignments) for sample in samples]
+# R `dada(..., selfConsist=TRUE)` as called by `learnErrors`. With
+# `rawsources`, transitions are recounted at the original read qualities.
+function learn_errors_upstream(samples::AbstractVector{Derep}; maxIter=10, span=0.75, omegaC=0.0,
+                               threaded=true, cacheAlignments=true, useKmers=true,
+                               rawsources=nothing, rawqmax=nothing, kwargs...)
+    !isempty(samples) && all(s -> !isempty(s.counts), samples) ||
+        throw(ArgumentError("Cannot learn from empty samples"))
+    maxIter >= 1 && isfinite(span) && 0 < span <= 1 || throw(ArgumentError("Invalid learning options"))
+    haskey(kwargs, :maxClusters) && throw(ArgumentError("maxClusters is set by error learning"))
+    caches = [InferenceCache(sample; useKmers, cacheAlignments) for sample in samples]
+    # R: qmax = ceiling(max(quals)); models are widened to cover it. Raw
+    # counting needs the highest original quality as well.
+    qmax = [ceil(Int, maximum(maximum, s.qualities)) for s in samples]
+    rawqmax === nothing || (qmax = max.(qmax, rawqmax))
+    widen(err, q) = size(err.rates, 2) >= q + 1 ? err :
+        ErrorModel(hcat(err.rates, repeat(err.rates[:, end:end], 1, q + 1 - size(err.rates, 2))),
+                   Val(:unchecked))  # the first model does not sum to one
+    function round_trans(errs, maxClusters)
+        results = dada_each(samples, errs; omegaC, threaded, _caches=caches, maxClusters, useKmers,
+                            cacheAlignments, kwargs...)
+        converged = all(r -> r.converged, results)
+        rawsources === nothing && return accumulate_transitions(results), converged
+        trans = zeros(Int, 16, maximum(e -> size(e.rates, 2), errs))
+        raw_transitions!(trans, samples, results, rawsources, caches; threaded), converged
+    end
+    # Initialisation: maximal error rates and a single partition per sample.
+    initial = [ErrorModel(ones(16, max(41, q + 1)), Val(:unchecked)) for q in qmax]
+    trans, _ = round_trans(initial, 1)
+    err = r_loess_errors(trans, nothing; span)
+    rates = copy(err.rates)
+    rates[[1, 6, 11, 16], :] .= 1.0
+    err = ErrorModel(rates, Val(:unchecked))
+    previous = ErrorModel[]; history = Float64[]
+    converged = false; inference_converged = false
     for _ in 1:maxIter
-        results = dada(samples,err; omegaC,_caches=caches,kwargs...)
-        fill!(trans,0)
-        if rawsources === nothing
-            for result in results
-                trans .+= result.transitions
-            end
-        else
-            raw_transitions!(trans,samples,results,rawsources,caches;band,
-                             threaded=get(kwargs,:threaded,true))
-        end
-        inference_converged = all(r -> r.converged,results)
-        updated = fitted_errors(trans,err; span, smoother)
-        delta = maximum(abs(log(max(updated.rates[i],1e-300))-log(max(err.rates[i],1e-300))) for i in eachindex(err.rates))
-        push!(history,delta); err = updated
-        if delta < tolerance && inference_converged
+        push!(previous, err)
+        trans, inference_converged = round_trans([widen(err, q) for q in qmax], 0)
+        updated = r_loess_errors(trans, nothing; span)
+        push!(history, size(updated.rates) == size(err.rates) ?
+            maximum(abs(log(max(updated.rates[i],1e-300)) - log(max(err.rates[i],1e-300)))
+                    for i in eachindex(err.rates)) : Inf)
+        err = updated
+        # R stops when a model repeats exactly, or after MAX_CONSIST rounds.
+        if any(e -> e.rates == err.rates, previous)
             converged = true; break
         end
     end
@@ -458,27 +553,79 @@ function learn_errors(samples::AbstractVector{Derep}; initial=phredErrors(), max
 end
 
 """
-    learnErrors(samples_or_paths; smoother=:loess, maxIter=10, ...)
+R `learnErrors` sampling: whole files in order until the bases exceed `nbases`.
+Returns the dereplicated files, their read sources and highest original quality.
+"""
+function upstream_training_data(paths::AbstractVector{<:AbstractString}, nbases::Integer)
+    !isempty(paths) || throw(ArgumentError("At least one FASTQ path is required"))
+    nbases > 0 || throw(ArgumentError("nbases must be positive"))
+    samples = Derep[]; sources = ErrorTrainingSource[]; rawqmax = Int[]; total = 0
+    for path in paths
+        builder = DerepBuilder(; keepmap=false)
+        reads = bases = qmax = 0
+        reader = FastqReader(path)
+        try
+            for read in reader
+                add_read!(builder, read)
+                reads += 1; bases += length(read.quality)
+                qmax = max(qmax, Int(maximum(read.quality; init=0x00)))
+            end
+        finally
+            close(reader)
+        end
+        push!(samples, finish(builder)); push!(sources, ErrorTrainingSource(String(path), reads, bases))
+        push!(rawqmax, qmax)
+        total += bases
+        total > nbases && break
+    end
+    samples, sources, rawqmax
+end
 
-Learn one shared substitution model while inferring each sample independently.
-Native quadratic LOESS uses exposure weights, a +1 error pseudocount, and
-constant rates outside observed qualities. `smoother=:linear` selects the
-previous estimator for comparisons. Error learning uses `omegaC=0` by default
-so every assigned read contributes to the transition counts.
+"""
+    learnErrors(samples_or_paths; nbases=100_000_000, maxIter=10, qualityMode=:mean, ...)
 
-FASTQ inputs default to `qualityMode=:raw`: use up to `nbases=100_000_000`
-training bases and reread the selected prefixes each iteration to count
-transitions at original qualities. `qualityMode=:mean` reproduces
-dereplicated mean-quality counting. Derep inputs only support mean qualities.
-Use `errorDiagnostics(result)` to inspect training support. Numerical
+Learn one error model shared by the samples, as R `learnErrors`: whole FASTQ
+files in order until more than `nbases` bases, a first round with maximal
+error rates and one partition per sample, self-transitions set to one in that
+first model, then up to `maxIter=10` rounds of inference (`omegaC=0`) and
+DADA2's `loessErrfun` that stop when a model repeats exactly. With the same
+input it gives R's error model, to rounding. Other keywords go to `dada`.
+
+Transitions are counted at the mean qualities of the dereplicated reads, as
+R. For FASTQ inputs, `qualityMode=:raw` counts them at the original read
+qualities instead (Julia extension; same procedure otherwise, files reread
+at each round). Use `errorDiagnostics(result)` to inspect training support;
 convergence does not demonstrate external calibration or biological accuracy.
 `cacheAlignments=false` reduces persistent memory use for unusually large
-numbers of unique sequences, at the cost of repeating alignments each iteration.
+numbers of unique sequences, at the cost of repeating alignments each round.
 """
+function learnErrors end
+
+# Options of the learner removed in favour of R's procedure.
+const REMOVED_LEARNER_OPTIONS = (:initial, :tolerance, :smoother, :upstream, :rawsources, :rawqmax)
+
+function check_learner_options(kwargs)
+    for key in REMOVED_LEARNER_OPTIONS
+        haskey(kwargs, key) && throw(ArgumentError("learnErrors follows R learnErrors; `$key` is not supported"))
+    end
+end
+
 function learnErrors(samples::AbstractVector{Derep}; qualityMode=:mean, kwargs...)
     qualityMode == :mean || throw(ArgumentError("Raw quality learning requires FASTQ paths"))
-    learn_errors(samples;kwargs...)
+    check_learner_options(kwargs)
+    learn_errors_upstream(samples; kwargs...)
 end
+learnErrors(d::Derep; kwargs...) = learnErrors([d]; kwargs...)
+
+function learnErrors(paths::AbstractVector{<:AbstractString}; qualityMode=:mean,
+                     nbases::Integer=100_000_000, kwargs...)
+    qualityMode in (:mean, :raw) || throw(ArgumentError("qualityMode must be :mean or :raw"))
+    check_learner_options(kwargs)
+    samples, sources, rawqmax = upstream_training_data(paths, nbases)
+    qualityMode == :mean && return learn_errors_upstream(samples; kwargs...)
+    learn_errors_upstream(samples; rawsources=sources, rawqmax, kwargs...)
+end
+learnErrors(path::AbstractString; kwargs...) = learnErrors([path]; kwargs...)
 
 "Training support by source base and quality; convergence is not external calibration."
 function errorDiagnostics(learned::ErrorLearningResult)
@@ -498,31 +645,6 @@ function errorDiagnostics(learned::ErrorLearningResult)
      quality_mode=learned.quality_mode, training_reads=learned.training_reads,
      training_bases=learned.training_bases)
 end
-learnErrors(d::Derep; kwargs...) = learnErrors([d]; kwargs...)
-function error_training_data(paths::AbstractVector{<:AbstractString}, nbases::Integer)
-    !isempty(paths) || throw(ArgumentError("At least one FASTQ path is required"))
-    nbases > 0 || throw(ArgumentError("nbases must be positive"))
-    samples = Derep[]
-    sources = ErrorTrainingSource[]
-    remaining = Int(nbases)
-    for (i,path) in enumerate(paths)
-        remaining == 0 && break
-        target = cld(remaining,length(paths)-i+1)
-        sample, reads, bases = dereplicate_prefix(path,target)
-        reads == 0 && continue
-        push!(samples,sample)
-        push!(sources,ErrorTrainingSource(String(path),reads,bases))
-        remaining = max(0,remaining-bases)
-    end
-    !isempty(samples) || throw(ArgumentError("Cannot learn from empty FASTQ files"))
-    samples, sources
-end
-
-function learnErrors(paths::AbstractVector{<:AbstractString}; qualityMode=:raw,
-                     nbases::Integer=100_000_000, kwargs...)
-    qualityMode in (:raw,:mean) || throw(ArgumentError("qualityMode must be :raw or :mean"))
-    samples, sources = error_training_data(paths,nbases)
-    learn_errors(samples;rawsources=qualityMode == :raw ? sources : nothing,kwargs...)
-end
-learnErrors(path::AbstractString; kwargs...) = learnErrors([path]; kwargs...)
 dada(d::Derep, learned::ErrorLearningResult; kwargs...) = dada(d,learned.errors; kwargs...)
+dada(samples::AbstractVector{Derep}, learned::ErrorLearningResult; kwargs...) =
+    dada(samples, learned.errors; kwargs...)

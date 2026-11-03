@@ -1,25 +1,45 @@
 # Contributing
 
-This package is an experimental Julia implementation of the central DADA2
-pipeline. Read the documented differences from R before interpreting results.
+DADA2.jl translates DADA2 1.36.0: for the same inputs and options it must give
+R's results. Read [docs/r-parity.md](docs/r-parity.md) before changing
+filtering, dereplication, denoising, error learning, merging or chimera
+detection.
 
 Use a branch for each change. Run from the repository root:
 
 ```sh
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. --threads=4 -e 'using Pkg; Pkg.test()'
-julia --project=. --threads=4 benchmark/benchmarks.jl
+julia --project=. --threads=4 test/runtests.jl
 ```
 
-Changes to scientific behavior should include an independent reference check
-or a regression fixture. The R comparison scripts in `validation/` compare
-the same error model, keeping inference separate from error learning.
-Do not claim general equivalence from a single fixture.
+`Pkg.test()` runs the same suite with bounds checking (slower).
 
-Report the Julia version, operating system, parameters and smallest input
-that reproduces a bug. Include the complete exception and stack trace.
-For performance changes, compare identical inputs after compilation and
-report allocations and thread count as well as runtime.
+## Changes to scientific behaviour
+
+- Keep upstream's iteration order, tie-breaking and order of floating-point
+  operations where they can change a result; the tests compare exact ASVs,
+  maps and transition counts with R.
+- A deliberate difference from R must be documented in `docs/r-parity.md`
+  and the CHANGELOG, with a test showing it.
+- To extend the R comparisons, change the generators in `validation/`
+  (`core_reference.R`, `learn_reference.R`, `pipeline_reference.R`,
+  `phix_reference.R`) and rerun them with R and dada2 installed: they rewrite
+  the fixtures in `test/fixtures/`. Do not edit fixtures by hand.
+- Do not claim general equivalence from one dataset; for real data, compare
+  the whole pipeline with `benchmark/pipeline_timing.{R,jl}` and
+  `benchmark/pipeline_compare.jl`. Keep private data out of the repository.
+
+## Performance changes
+
+Results must not change: run the test suite and, for changes to the
+denoising core, compare a real or simulated sample with R as above. Compare
+identical inputs after compilation and report thread count, run time and
+allocations; `benchmark/benchmarks.jl` gives quick micro-benchmarks.
+
+## Bug reports
+
+Report the Julia version, operating system, parameters and the smallest input
+that reproduces the problem, with the complete exception and stack trace.
 
 ## Source release
 
