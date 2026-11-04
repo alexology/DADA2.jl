@@ -55,20 +55,45 @@ end
 FastqRecord(id::AbstractString,seq::BioSequences.NucSeq,quality::AbstractVector{<:Integer})=
     FastqRecord(id,String(seq),quality)
 
+"""
+Mean qualities of dereplicated reads, stored as exact integer sums of the
+read qualities: one byte per base for uniques seen once, UInt32 sums, widened
+to UInt64 before they could overflow. `q[i]` is `sums[i] ./ counts[i]` in
+Float64: the same values as averaging in Float64 (sums below 2^53 convert
+exactly), in about an eighth of the memory.
+"""
+const QualitySum = Union{Vector{UInt8},Vector{UInt32},Vector{UInt64}}
+struct MeanQualities <: AbstractVector{Vector{Float64}}
+    sums::Vector{QualitySum}
+    counts::Vector{Int}
+end
+Base.size(q::MeanQualities) = size(q.sums)
+Base.getindex(q::MeanQualities, i::Int) = q.sums[i] ./ q.counts[i]
+mean_quality(q::MeanQualities, i::Int, pos::Int) = q.sums[i][pos] / q.counts[i]
+mean_quality(q::AbstractVector, i::Int, pos::Int) = Float64(q[i][pos])
+quality_length(q::MeanQualities, i::Int) = length(q.sums[i])
+quality_length(q::AbstractVector, i::Int) = length(q[i])
+
 "Dereplicated reads. `map` maps original read order to unique sequence indices."
 struct Derep
     sequences::Vector{String}
     counts::Vector{Int}
-    qualities::Vector{Vector{Float64}}
+    qualities::Union{Vector{Vector{Float64}},MeanQualities}
     map::Vector{Int}
     function Derep(sequences, counts, qualities, map=Int[])
         length(sequences) == length(counts) == length(qualities) || throw(ArgumentError("Inconsistent derep dimensions"))
         seq = [validated_dna(s) for s in sequences]
         length(unique(seq)) == length(seq) || throw(ArgumentError("Duplicate unique sequences"))
         all(>(0), counts) || throw(ArgumentError("Counts must be positive"))
-        qs = [Float64.(q) for q in qualities]
-        all(i -> length(qs[i]) == ncodeunits(seq[i]), eachindex(seq)) || throw(ArgumentError("Quality lengths differ"))
-        all(q -> all(x -> isfinite(x) && 0 <= x <= 93, q), qs) || throw(ArgumentError("Invalid qualities"))
+        if qualities isa MeanQualities
+            qualities.counts == counts || throw(ArgumentError("Quality sums disagree with counts"))
+            qs = qualities
+        else
+            qs = [Float64.(q) for q in qualities]
+        end
+        all(i -> quality_length(qs, i) == ncodeunits(seq[i]), eachindex(seq)) || throw(ArgumentError("Quality lengths differ"))
+        all(i -> all(pos -> (x = mean_quality(qs, i, pos); isfinite(x) && 0 <= x <= 93),
+                     1:quality_length(qs, i)), eachindex(seq)) || throw(ArgumentError("Invalid qualities"))
         all(i -> 1 <= i <= length(seq), map) || throw(ArgumentError("Invalid read map"))
         if !isempty(map)
             observed = zeros(Int, length(seq))

@@ -65,6 +65,11 @@ Results on real data differ from 0.3.0.
 
 ### Fixes
 
+- `learnErrors` applies `nbases` to dereplicated inputs too, taking whole
+  samples until the bases exceed it, as R (DD10).
+- Quality sums of dereplicated reads are widened before they could overflow
+  (DD11); `threaded=false` also keeps the preparation of the uniques on the
+  calling thread (DD9).
 - Sequences longer than about 6,500 bases are aligned with 32-bit scores
   instead of overflowing 16-bit ones, as upstream does (DD5).
 - Comparison-cache and chimera flags are no longer bit-packed vectors
@@ -84,6 +89,12 @@ Results on real data differ from 0.3.0.
   prepared in parallel.
 - On a real paired-end sample (four threads) the whole pipeline took 95 s,
   against 312 s in R.
+- Less memory for long or very diverse reads: mean qualities kept as exact
+  integer sums (one byte per base for uniques seen once), ordered k-mers
+  compared from the sequences instead of being stored, final alignments
+  computed only for the uniques kept by the final test (the others do not
+  enter the results) and not all held at once. On 19,000 nanopore uniques of
+  2.7 kb (two threads) the peak memory fell from 3.7 GB to 2.2 GB.
 
 ### Input and output
 

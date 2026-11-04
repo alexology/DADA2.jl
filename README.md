@@ -99,8 +99,9 @@ plus `priors`. With several samples, `pool=true` denoises the pooled uniques
 once and `pool=:pseudo` repeats inference with the ASVs found in at least
 `pseudoPrevalence=2` samples as priors.
 
-`learnErrors` reads whole files until it has more than `nbases`
-(100,000,000) bases and runs at most `maxIter=10` rounds, as R. For FASTQ
+`learnErrors` reads whole files (or takes whole dereplicated samples) until
+it has more than `nbases` (100,000,000) bases and runs at most `maxIter=10`
+rounds, as R. For FASTQ
 inputs, `qualityMode=:raw` counts transitions at the original read qualities
 instead of the mean qualities of each unique sequence: this is a Julia
 extension, not validated (see [Fidelity](#fidelity-to-dada2-r)).

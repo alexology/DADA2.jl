@@ -202,7 +202,7 @@ mutable struct DerepBuilder
     index::Dict{String,Int}
     sequences::Vector{String}
     counts::Vector{Int}
-    quality_sums::Vector{Vector{Float64}}
+    quality_sums::Vector{QualitySum}  # exact integer sums
     first_read::Vector{Int}  # read number of the first occurrence
     mapping::Vector{Int}
     keepmap::Bool
@@ -210,7 +210,7 @@ mutable struct DerepBuilder
     chunk::Int
 end
 DerepBuilder(;keepmap=true, n=1_000_000) =
-    DerepBuilder(Dict{String,Int}(), String[], Int[], Vector{Float64}[], Int[], Int[], keepmap, 0, n)
+    DerepBuilder(Dict{String,Int}(), String[], Int[], QualitySum[], Int[], Int[], keepmap, 0, n)
 
 function add_read!(builder::DerepBuilder, read::FastqRecord)
     seq = validated_dna(read.sequence)
@@ -219,13 +219,23 @@ function add_read!(builder::DerepBuilder, read::FastqRecord)
     if i == 0
         push!(builder.sequences, seq)
         push!(builder.counts, 0)
-        push!(builder.quality_sums, zeros(length(read.quality)))
+        push!(builder.quality_sums, UInt8[])
         push!(builder.first_read, builder.reads)
         i = length(builder.sequences)
         builder.index[seq] = i
     end
     builder.counts[i] += 1
-    builder.quality_sums[i] .+= read.quality
+    count = builder.counts[i]
+    if count == 1
+        builder.quality_sums[i] = copy(read.quality)  # one read: its own qualities
+    else
+        sums = builder.quality_sums[i]
+        sums isa Vector{UInt8} && (sums = builder.quality_sums[i] = UInt32.(sums))
+        # Qualities are at most 93: UInt32 sums are safe up to this count (DD11).
+        sums isa Vector{UInt32} && count > typemax(UInt32) ÷ 93 &&
+            (sums = builder.quality_sums[i] = UInt64.(sums))
+        sums .+= read.quality
+    end
     builder.keepmap && push!(builder.mapping, i)
     builder
 end
@@ -239,7 +249,7 @@ function finish(builder::DerepBuilder)
     order = sortperm(eachindex(builder.sequences);
         by=i -> (-builder.counts[i], (builder.first_read[i]-1) ÷ builder.chunk, builder.sequences[i]))
     rank = invperm(order)
-    qualities = [builder.quality_sums[i] ./ builder.counts[i] for i in order]
+    qualities = MeanQualities(builder.quality_sums[order], builder.counts[order])
     Derep(builder.sequences[order], builder.counts[order], qualities, rank[builder.mapping])
 end
 

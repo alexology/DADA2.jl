@@ -143,7 +143,9 @@ end
         t = vcat(rand(rng, bases, rand(rng, 6:300)), repeat(rand(rng, bases, rand(rng, 1:3)), rand(rng, 0:400)))
         a = DADA2.RawSeq(DADA2.encode_dna(String(s)), UInt8[], true)
         b = DADA2.RawSeq(DADA2.encode_dna(String(t)), UInt8[], true)
-        @test DADA2.kmer_dot(a, b) == DADA2.kmer_dot(sort(a.kord), sort(b.kord))
+        wa = DADA2.kmer_words(a.seq); wb = DADA2.kmer_words(b.seq)
+        @test DADA2.kmer_dot(a, b) == DADA2.kmer_dot(sort(wa), sort(wb))
+        @test DADA2.kord_dot(a.seq, b.seq) == DADA2.kord_dot(wa, wb)
         x = rand(rng, 0x01:0x04, rand(rng, 20:250)); y = copy(x)
         for _ in 1:rand(rng, 0:6)
             y[rand(rng, eachindex(y))] = rand(rng, 0x01:0x04)
@@ -155,4 +157,37 @@ end
             @test (full.pos, full.trans) == (fast.pos, fast.trans)
         end
     end
+end
+
+@testset "Review regressions DD9-DD11" begin
+    root = joinpath(@__DIR__, "fixtures", "learn")
+    files = [joinpath(root, "sample$i.fastq.gz") for i in 1:3]
+    dereps = derepFastq.(files)
+    matrix(path) = permutedims(hcat([parse.(Float64, r) for r in read_tsv(path)]...))
+    # DD10: dereplicated inputs use R's budget of whole samples.
+    nbases = parse(Int, first(readlines(joinpath(root, "two_info.txt"))))
+    budget = learnErrors(dereps; nbases)
+    @test budget.transitions == round.(Int, matrix(joinpath(root, "two_trans.tsv")))
+    @test budget.errors.rates ≈ matrix(joinpath(root, "two_err.tsv")) rtol=1e-12
+    @test budget.transitions == learnErrors(files; nbases).transitions
+    @test learnErrors(dereps[1]; nbases=1).transitions == learnErrors(dereps[1:1]).transitions
+    @test_throws ArgumentError learnErrors(dereps; nbases=0)
+    # DD11: quality sums are widened before they can overflow.
+    builder = DADA2.DerepBuilder(; keepmap=false)
+    DADA2.add_read!(builder, FastqRecord("a", "ACGTACGT", fill(40, 8)))
+    DADA2.add_read!(builder, FastqRecord("b", "ACGTACGT", fill(40, 8)))
+    limit = Int(typemax(UInt32) ÷ 93)
+    builder.counts[1] = limit                       # state reached after `limit` reads
+    builder.quality_sums[1] = fill(UInt32(40 * limit), 8)
+    DADA2.add_read!(builder, FastqRecord("c", "ACGTACGT", fill(40, 8)))
+    @test builder.quality_sums[1] isa Vector{UInt64}
+    @test builder.quality_sums[1] == fill(UInt64(40) * (limit + 1), 8)
+    @test DADA2.finish(builder).qualities[1] == fill(40.0, 8)
+    # DD9: serial preparation gives the same uniques as the parallel one.
+    d = dereps[1]
+    serial = DADA2.InferenceCache(d; threaded=false); parallel = DADA2.InferenceCache(d; threaded=true)
+    @test all(i -> (serial.raws[i].seq, serial.raws[i].qual, collect(serial.raws[i].kmer)) ==
+                   (parallel.raws[i].seq, parallel.raws[i].qual, collect(parallel.raws[i].kmer)),
+              eachindex(serial.raws))
+    @test dada(d; threaded=false).assignments == dada(d; threaded=true).assignments
 end

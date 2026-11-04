@@ -398,7 +398,21 @@ function kmer_dot(a::Vector{UInt16}, b::Vector{UInt16})
     common
 end
 
-"Ordered k-mer matches over the shorter sequence (upstream `kord_dist_SSEi`)."
+"""
+Ordered k-mer matches over the shorter sequence (upstream `kord_dist_SSEi`),
+from the sequences: the k-mers at a position are equal exactly when the last
+`k` bases ending there are all equal.
+"""
+function kord_dot(a::Vector{UInt8}, b::Vector{UInt8}, k::Int=KMER_SIZE)
+    run = 0; common = 0
+    @inbounds for i in 1:min(length(a), length(b))
+        run = a[i] == b[i] ? run + 1 : 0
+        common += run >= k
+    end
+    common
+end
+
+"Ordered k-mer matches of two k-mer vectors (reference for `kord_dot` on sequences)."
 function kord_dot(a::Vector{UInt16}, b::Vector{UInt16})
     common = 0
     @inbounds for i in 1:min(length(a), length(b))
@@ -481,7 +495,6 @@ struct RawSeq
     qual::Vector{UInt8}
     kmer::KmerColumn                    # dense counts, saturated at 255
     overflow::Vector{Pair{UInt16,Int}}  # exact counts above 255
-    kord::Vector{UInt16}                # k-mers in sequence order
 end
 
 """
@@ -496,12 +509,8 @@ function raw_seqs(seqs::Vector{Vector{UInt8}}, quals::Vector{Vector{UInt8}}, use
     raws = Vector{RawSeq}(undef, n)
     build(i) = begin
         column = view(counts, :, i)
-        if use_kmers
-            words = kmer_words(seqs[i])
-            raws[i] = RawSeq(seqs[i], quals[i], column, kmer_counts!(column, words), words)
-        else
-            raws[i] = RawSeq(seqs[i], quals[i], column, Pair{UInt16,Int}[], UInt16[])
-        end
+        overflow = use_kmers ? kmer_counts!(column, kmer_words(seqs[i])) : Pair{UInt16,Int}[]
+        raws[i] = RawSeq(seqs[i], quals[i], column, overflow)
     end
     if threaded && Threads.nthreads() > 1 && n >= 256
         Threads.@threads for i in 1:n
@@ -540,7 +549,7 @@ function raw_align(r0::RawSeq, r1::RawSeq, o::AlignOptions, use_kmers::Bool, kdi
         dot = kmer_dot(r0, r1)
         kdist = 1.0 - dot/denominator
         # The ordered count only matters for pairs that pass the screen.
-        o.gapless && kdist <= kdist_cutoff && (gapless = kord_dot(r0.kord, r1.kord) == dot)
+        o.gapless && kdist <= kdist_cutoff && (gapless = kord_dot(r0.seq, r1.seq) == dot)
     end
     if use_kmers && kdist > kdist_cutoff
         nothing
@@ -675,6 +684,16 @@ function merge_comparisons(a::CenterComparisons, index::Vector{Int32}, subs)
     out
 end
 
+"Mean qualities of unique `i` rounded half away from zero, as upstream `raw_new`."
+rounded_qualities(q::MeanQualities, i::Int) = q.counts[i] == 1 ? UInt8.(q.sums[i]) :
+    UInt8[round(Int, s / q.counts[i], RoundNearestTiesAway) for s in q.sums[i]]
+rounded_qualities(q::AbstractVector, i::Int) = UInt8[round(Int, x, RoundNearestTiesAway) for x in q[i]]
+
+"Highest mean quality of a dereplicated sample."
+max_quality(q::MeanQualities) =
+    maximum((maximum(q.sums[i]; init=0) / q.counts[i] for i in eachindex(q.sums)); init=0.0)
+max_quality(q::AbstractVector) = maximum(x -> maximum(x; init=0.0), q; init=0.0)
+
 "Caller-owned sequence data and alignment caches, reusable across error-learning rounds."
 mutable struct InferenceCache
     raws::Vector{RawSeq}
@@ -685,13 +704,13 @@ mutable struct InferenceCache
     final::Vector{Union{Nothing,Tuple{Int32,Sub}}}     # by unique: (centre, alignment)
 end
 
-function InferenceCache(d::Derep; useKmers=true, cacheAlignments=true, kwargs...)
+function InferenceCache(d::Derep; useKmers=true, cacheAlignments=true, threaded=true, kwargs...)
     n = length(d.sequences)
     # Process uniques by decreasing abundance, ties in input order (derepFastq).
     order = sortperm(1:n; by=i -> (-d.counts[i], i))
     raws = raw_seqs([encode_dna(d.sequences[i]) for i in order],
-                    [UInt8[round(Int, q, RoundNearestTiesAway) for q in d.qualities[i]] for i in order],
-                    useKmers)
+                    [rounded_qualities(d.qualities, i) for i in order],
+                    useKmers; threaded)
     InferenceCache(raws, order, nothing, cacheAlignments,
                    Vector{Union{Nothing,CenterComparisons}}(nothing, n),
                    Vector{Union{Nothing,Tuple{Int32,Sub}}}(nothing, n))
@@ -699,7 +718,7 @@ end
 
 function check_cache!(cache::InferenceCache, d::Derep, o::AlignOptions, cache_alignments::Bool)
     length(cache.raws) == length(d.sequences) && cache.cache_alignments == cache_alignments &&
-        (!o.use_kmers || all(r -> length(r.kord) == max(length(r.seq)-KMER_SIZE+1, 0), cache.raws)) ||
+        (!o.use_kmers || all(r -> length(r.kmer) == N_KMERS, cache.raws)) ||
         throw(ArgumentError("Invalid inference cache"))
     if cache.options === nothing
         cache.options = o

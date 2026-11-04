@@ -48,14 +48,14 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
     abs(homo) <= 1000 || throw(ArgumentError("Invalid inference options"))
     vectorized = vectorizedAlignment && homo == gap && band != 0
     maxq = size(err.rates,2)-1
-    all(q -> all(x -> round(Int, x, RoundNearestTiesAway) <= maxq, q), d.qualities) ||
+    round(Int, max_quality(d.qualities), RoundNearestTiesAway) <= maxq ||
         throw(ArgumentError("Error model does not cover read qualities"))
     n = length(d.sequences)
     n == 0 && return DadaResult(String[], Int[], Int[], d, zeros(Int,size(err.rates)), err, true, 0, 0,
                                 empty_clustering())
     all(s -> KMER_SIZE < ncodeunits(s) < 9999, d.sequences) ||
         throw(ArgumentError("Sequences must be longer than $KMER_SIZE and shorter than 9999 bases"))
-    cache = _cache === nothing ? InferenceCache(d; useKmers, cacheAlignments) : _cache
+    cache = _cache === nothing ? InferenceCache(d; useKmers, cacheAlignments, threaded) : _cache
     options = AlignOptions(match, mismatch, gap, homo, Int(band), useKmers, kdistCutoff,
                            vectorized, gapless)
     check_cache!(cache, d, options, cacheAlignments)
@@ -67,13 +67,7 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
                     Int(minHamming), Int(minAbundance), threaded)
     converged = run_dada!(b, cache, o, Int(maxClusters))
 
-    # Final alignments with each center, then the unconditional correction test.
-    members = [(c.center, r) for c in b.clusters for r in c.raws]
-    subs = Vector{Sub}(undef, n)
-    foreach_scratch(length(members), threaded) do scratch, k
-        center, r = members[k]
-        subs[r] = final_sub(b, cache, o, center, r, scratch)
-    end
+    # Unconditional correction test (it depends only on lambda).
     for c in b.clusters, r in c.raws
         if r == c.center
             b.p[r] = 1.0
@@ -83,13 +77,43 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
         end
     end
 
+    # Final alignments with each centre, only for the corrected uniques: they
+    # alone enter the transition counts and the diagnostics, as upstream.
+    # Transitions are summed per task (integers: the order does not matter)
+    # and only the number of substitutions of each alignment is kept.
+    members = [(c.center, r) for c in b.clusters for r in c.raws if b.correct[r]]
+    substitutions = fill(-1, n)
+    chunks = work_chunks(length(members), threaded)
+    partial = [zeros(Int, size(err.rates)) for _ in chunks]
+    work(k) = begin
+        local scratch = AlignScratch()
+        counts = partial[k]
+        for m in chunks[k]
+            center, r = members[m]
+            sub = final_sub(b, cache, o, center, r, scratch)
+            substitutions[r] = nsubs(sub)
+            centre = b.raws[center]; raw = b.raws[r]; reads = b.reads[r]
+            @inbounds for pos0 in eachindex(centre.seq)
+                pos1 = sub.map[pos0]
+                pos1 == 0 && continue
+                counts[4*(centre.seq[pos0]-1) + raw.seq[pos1], raw.qual[pos1]+1] += reads
+            end
+        end
+    end
+    if length(chunks) > 1
+        Threads.@threads for k in eachindex(chunks)
+            work(k)
+        end
+    else
+        foreach(work, eachindex(chunks))
+    end
+    trans = reduce(+, partial; init=zeros(Int, size(err.rates)))
+
     nclust = length(b.clusters)
     representative = zeros(Int, nclust); totals = zeros(Int, nclust)
     assignments = zeros(Int, n); rejected = 0
-    trans = zeros(Int, size(err.rates))
     for (i, c) in enumerate(b.clusters)
         max_reads = 0
-        center = b.raws[c.center]
         for r in c.raws
             if b.reads[r] > max_reads
                 representative[i] = r; max_reads = b.reads[r]
@@ -99,17 +123,10 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
                 continue
             end
             totals[i] += b.reads[r]; assignments[order[r]] = i
-            raw = b.raws[r]; map = subs[r].map
-            for pos0 in eachindex(center.seq)
-                pos1 = map[pos0]
-                pos1 == 0 && continue
-                t = 4*(center.seq[pos0]-1) + raw.seq[pos1]
-                trans[t, raw.qual[pos1]+1] += b.reads[r]
-            end
         end
     end
     sequences = [d.sequences[order[r]] for r in representative]
-    table = clustering_table(b, cache, o, subs, sequences, totals)
+    table = clustering_table(b, cache, o, substitutions, sequences, totals)
     ranked = sortperm(1:nclust; by=i -> (-totals[i], sequences[i]))
     inverse = invperm(ranked)
     remapped = [i == 0 ? 0 : inverse[i] for i in assignments]
@@ -118,13 +135,13 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
 end
 
 "Upstream `b_make_clustering_df`, partitions in order of birth."
-function clustering_table(b::Partition, cache::InferenceCache, o::DadaOptions, subs, sequences, totals)
+function clustering_table(b::Partition, cache::InferenceCache, o::DadaOptions, substitutions, sequences, totals)
     nclust = length(b.clusters)
     n0 = zeros(Int, nclust); n1 = zeros(Int, nclust); nunq = zeros(Int, nclust)
     for (i, c) in enumerate(b.clusters), r in c.raws
         b.correct[r] || continue
         nunq[i] += 1
-        k = nsubs(subs[r])
+        k = substitutions[r]
         k == 0 && (n0[i] += b.reads[r])
         k == 1 && (n1[i] += b.reads[r])
     end
@@ -216,7 +233,7 @@ function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); poo
     # As upstream, the second pass uses the error model re-estimated with
     # loessErrfun from the transitions of the first pass.
     err2 = r_loess_errors(accumulate_transitions(results), nothing)
-    errs = [widen_errors(err2, ceil(Int, maximum(maximum, d.qualities; init=0.0))) for d in samples]
+    errs = [widen_errors(err2, ceil(Int, max_quality(d.qualities))) for d in samples]
     dada_each(samples, errs; priors=vcat(collect(priors), sort!(pseudo)), kwargs...)
 end
 
@@ -507,10 +524,10 @@ function learn_errors_upstream(samples::AbstractVector{Derep}; maxIter=10, span=
         throw(ArgumentError("Cannot learn from empty samples"))
     maxIter >= 1 && isfinite(span) && 0 < span <= 1 || throw(ArgumentError("Invalid learning options"))
     haskey(kwargs, :maxClusters) && throw(ArgumentError("maxClusters is set by error learning"))
-    caches = [InferenceCache(sample; useKmers, cacheAlignments) for sample in samples]
+    caches = [InferenceCache(sample; useKmers, cacheAlignments, threaded) for sample in samples]
     # R: qmax = ceiling(max(quals)); models are widened to cover it. Raw
     # counting needs the highest original quality as well.
-    qmax = [ceil(Int, maximum(maximum, s.qualities)) for s in samples]
+    qmax = [ceil(Int, max_quality(s.qualities)) for s in samples]
     rawqmax === nothing || (qmax = max.(qmax, rawqmax))
     widen(err, q) = size(err.rates, 2) >= q + 1 ? err :
         ErrorModel(hcat(err.rates, repeat(err.rates[:, end:end], 1, q + 1 - size(err.rates, 2))),
@@ -610,10 +627,22 @@ function check_learner_options(kwargs)
     end
 end
 
-function learnErrors(samples::AbstractVector{Derep}; qualityMode=:mean, kwargs...)
+function learnErrors(samples::AbstractVector{Derep}; qualityMode=:mean, nbases::Integer=100_000_000,
+                     kwargs...)
     qualityMode == :mean || throw(ArgumentError("Raw quality learning requires FASTQ paths"))
     check_learner_options(kwargs)
-    learn_errors_upstream(samples; kwargs...)
+    learn_errors_upstream(budget_prefix(samples, nbases); kwargs...)
+end
+
+"R `learnErrors` sampling of dereplicated samples: whole samples in order until the bases exceed `nbases`."
+function budget_prefix(samples::AbstractVector{Derep}, nbases::Integer)
+    nbases > 0 || throw(ArgumentError("nbases must be positive"))
+    bases = 0
+    for (k, d) in enumerate(samples)
+        bases += sum(ncodeunits(d.sequences[i]) * d.counts[i] for i in eachindex(d.sequences); init=0)
+        bases > nbases && return samples[1:k]
+    end
+    samples
 end
 learnErrors(d::Derep; kwargs...) = learnErrors([d]; kwargs...)
 

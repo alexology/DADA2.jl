@@ -157,3 +157,16 @@ end
     @test [d2.sequences[i] for i in d2.map] == [r.sequence for r in reads]
     @test_throws ArgumentError dereplicate(reads; n=0)
 end
+
+@testset "Compact mean qualities" begin
+    reads = [FastqRecord("a", "ACGTACGT", [30, 31, 32, 33, 34, 35, 36, 37]),
+             FastqRecord("b", "ACGTACGT", [31, 31, 31, 31, 31, 31, 31, 40]),
+             FastqRecord("c", "TTTTACGT", fill(20, 8))]
+    d = dereplicate(reads)
+    @test d.qualities isa DADA2.MeanQualities
+    @test d.qualities[1] == ([30, 31, 32, 33, 34, 35, 36, 37] .+ [31, 31, 31, 31, 31, 31, 31, 40]) ./ 2
+    @test d.qualities[2] == fill(20.0, 8)
+    @test d.qualities == [[30.5, 31.0, 31.5, 32.0, 32.5, 33.0, 33.5, 38.5], fill(20.0, 8)]
+    @test DADA2.rounded_qualities(d.qualities, 1) == UInt8[31, 31, 32, 32, 33, 33, 34, 39]
+    @test DADA2.max_quality(d.qualities) == 38.5
+end
