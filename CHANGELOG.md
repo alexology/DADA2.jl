@@ -65,6 +65,11 @@ Results on real data differ from 0.3.0.
 
 ### Fixes
 
+- `learnErrors` accepts `pool=true` and `pool=:pseudo` as R (pooled uniques;
+  pseudo-priors from the second round), instead of failing with a
+  `MethodError` (DD13). `qualityMode=:raw` with `pool=true` is rejected.
+- `omegaA` and `omegaP` accept 0 (disabling the test) and reject 1, as R
+  (DD12).
 - `learnErrors` applies `nbases` to dereplicated inputs too, taking whole
   samples until the bases exceed it, as R (DD10).
 - Quality sums of dereplicated reads are widened before they could overflow

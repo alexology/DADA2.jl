@@ -170,3 +170,42 @@ end
     @test DADA2.rounded_qualities(d.qualities, 1) == UInt8[31, 31, 32, 32, 33, 33, 34, 39]
     @test DADA2.max_quality(d.qualities) == 38.5
 end
+
+@testset "Error learning with pooling identical to R (DD13)" begin
+    samples = [uniques_derep(joinpath(PIPELINE, "pool$(s)_uniques.tsv")) for s in 1:4]
+    matrix(path) = permutedims(hcat([parse.(Float64, r) for r in read_tsv(path)]...))
+    for (mode, pool) in (("independent", false), ("pooled", true), ("pseudo", :pseudo)), threaded in (false, true)
+        learned = learnErrors(samples; pool, threaded)
+        # With pool=TRUE, R reports the pooled counts once per sample (each
+        # sample's dada object carries them); the error model uses them once.
+        copies = pool === true ? length(samples) : 1
+        @test copies .* learned.transitions == round.(Int, matrix(joinpath(PIPELINE, "learn_$(mode)_trans.tsv")))
+        @test learned.errors.rates ≈ matrix(joinpath(PIPELINE, "learn_$(mode)_err.tsv")) rtol=1e-12
+        @test learned.iterations == parse(Int, readline(joinpath(PIPELINE, "learn_$(mode)_rounds.txt")))
+    end
+    root = joinpath(@__DIR__, "fixtures", "learn")
+    files = [joinpath(root, "sample$i.fastq.gz") for i in 1:3]
+    for mode in ("pooled", "pseudo")
+        learned = learnErrors(files; pool=mode == "pooled" ? true : :pseudo)
+        copies = mode == "pooled" ? length(files) : 1
+        @test copies .* learned.transitions == round.(Int, matrix(joinpath(root, "$(mode)_trans.tsv")))
+        @test learned.errors.rates ≈ matrix(joinpath(root, "$(mode)_err.tsv")) rtol=1e-12
+    end
+    @test_throws ArgumentError learnErrors(files; pool=true, qualityMode=:raw)
+    @test_throws ArgumentError learnErrors(samples; pool=:unknown)
+    @test learnErrors(files; pool=:pseudo, qualityMode=:raw).quality_mode == :raw
+end
+
+@testset "OMEGA bounds as R (DD12)" begin
+    # Two 16-base sequences at Q40, 1,000 and 100 reads.
+    parent = "ACGTACGTTGCATGCA"; variant = "ACGTACGTTGCATGCT"
+    d = Derep([parent, variant], [1000, 100], [fill(40.0, 16), fill(40.0, 16)])
+    @test length(dada(d).sequences) == 2
+    @test dada(d; omegaA=0).sequences == [parent]   # no abundance births
+    @test dada(d; omegaA=0).rejected == 100          # the variant fails the final test
+    @test length(dada(d; omegaP=0).sequences) == 2
+    @test dada(d; omegaA=0, omegaP=0).sequences == [parent]
+    @test_throws ArgumentError dada(d; omegaA=1)
+    @test_throws ArgumentError dada(d; omegaP=1)
+    @test_throws ArgumentError dada(d; omegaA=-1e-3)
+end

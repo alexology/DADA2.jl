@@ -143,5 +143,16 @@ write.table(flags, file.path(out, "chimera_flags.tsv"), sep="\t", row.names=FALS
 persample <- removeBimeraDenovo(tab, method="per-sample")
 write.table(data.frame(sequence=colnames(persample), t(persample), check.names=FALSE),
             file.path(out, "chimera_persample.tsv"), sep="\t", row.names=FALSE, quote=FALSE)
+
+# --- Error learning with pooling, on the four samples with shared variants ---
+for(mode in c("independent", "pooled", "pseudo")) {
+  pool <- if(mode == "pooled") TRUE else if(mode == "pseudo") "pseudo" else FALSE
+  e <- learnErrors(dereps, pool=pool, multithread=FALSE, verbose=FALSE)
+  write.table(matrix(sprintf("%.17g", e$err_out), 16), file.path(out, paste0("learn_", mode, "_err.tsv")),
+              sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
+  write.table(e$trans, file.path(out, paste0("learn_", mode, "_trans.tsv")), sep="\t",
+              row.names=FALSE, col.names=FALSE)
+  writeLines(as.character(length(e$err_in)), file.path(out, paste0("learn_", mode, "_rounds.txt")))
+}
 writeLines(c(paste("R", getRversion()), paste("dada2", packageVersion("dada2"))),
            file.path(out, "versions.txt"))

@@ -38,7 +38,8 @@ function dada(d::Derep, err::ErrorModel=phredErrors(); omegaA=1e-40, omegaP=1e-4
               homopolymerGap=nothing, vectorizedAlignment=true, gapless=true, greedy=true,
               minFold=1, minHamming=1, minAbundance=1, threaded=true,
               cacheAlignments=true, _cache=nothing)
-    0 < omegaA <= 1 && 0 < omegaP <= 1 && 0 <= omegaC <= 1 && 0 <= kdistCutoff <= 1 &&
+    # As R: 0 disables the abundance (omegaA) or prior (omegaP) test; 1 is rejected.
+    0 <= omegaA < 1 && 0 <= omegaP < 1 && 0 <= omegaC <= 1 && 0 <= kdistCutoff <= 1 &&
         maxClusters >= 0 && match > 0 && mismatch <= 0 && minFold >= 0 &&
         all(x -> abs(x) <= 1000, (match, mismatch, gap)) ||
         throw(ArgumentError("Invalid inference options"))
@@ -222,14 +223,7 @@ function dada(samples::AbstractVector{Derep}, err::ErrorModel=phredErrors(); poo
     end
     results = dada_each(samples, fill(err, length(samples)); priors, kwargs...)
     pool === :pseudo || return results
-    pseudoPrevalence >= 0 && pseudoAbundance >= 0 || throw(ArgumentError("Invalid pseudo-pooling options"))
-    prevalence = Dict{String,Int}(); abundance = Dict{String,Int}()
-    for r in results, (sequence, count) in zip(r.sequences, r.counts)
-        count > 0 || continue
-        prevalence[sequence] = get(prevalence, sequence, 0) + 1
-        abundance[sequence] = get(abundance, sequence, 0) + count
-    end
-    pseudo = [s for s in keys(prevalence) if prevalence[s] >= pseudoPrevalence || abundance[s] >= pseudoAbundance]
+    pseudo = pseudo_priors(results, pseudoPrevalence, pseudoAbundance)
     # As upstream, the second pass uses the error model re-estimated with
     # loessErrfun from the transitions of the first pass.
     err2 = r_loess_errors(accumulate_transitions(results), nothing)
@@ -249,6 +243,18 @@ end
 "R's extension of an error model to quality `q`: the last column is repeated."
 widen_errors(err::ErrorModel, q::Int) = size(err.rates, 2) >= q + 1 ? err :
     ErrorModel(hcat(err.rates, repeat(err.rates[:, end:end], 1, q + 1 - size(err.rates, 2))))
+
+"R's pseudo-priors: ASVs in at least `prevalence` samples or with at least `abundance` reads."
+function pseudo_priors(results, prevalence::Real, abundance::Real)
+    prevalence >= 0 && abundance >= 0 || throw(ArgumentError("Invalid pseudo-pooling options"))
+    samples = Dict{String,Int}(); reads = Dict{String,Int}()
+    for r in results, (sequence, count) in zip(r.sequences, r.counts)
+        count > 0 || continue
+        samples[sequence] = get(samples, sequence, 0) + 1
+        reads[sequence] = get(reads, sequence, 0) + count
+    end
+    sort!([s for s in keys(samples) if samples[s] >= prevalence || reads[s] >= abundance])
+end
 
 "Upstream `combineDereps2`: summed counts, weighted mean qualities, by decreasing abundance."
 function pool_dereps(samples::AbstractVector{Derep})
@@ -519,11 +525,20 @@ end
 # `rawsources`, transitions are recounted at the original read qualities.
 function learn_errors_upstream(samples::AbstractVector{Derep}; maxIter=10, span=0.75, omegaC=0.0,
                                threaded=true, cacheAlignments=true, useKmers=true,
-                               rawsources=nothing, rawqmax=nothing, kwargs...)
+                               rawsources=nothing, rawqmax=nothing, pool=false, priors=String[],
+                               pseudoPrevalence=2, pseudoAbundance=Inf, kwargs...)
     !isempty(samples) && all(s -> !isempty(s.counts), samples) ||
         throw(ArgumentError("Cannot learn from empty samples"))
     maxIter >= 1 && isfinite(span) && 0 < span <= 1 || throw(ArgumentError("Invalid learning options"))
     haskey(kwargs, :maxClusters) && throw(ArgumentError("maxClusters is set by error learning"))
+    pool in (false, true, :pseudo) || throw(ArgumentError("pool must be false, true or :pseudo"))
+    length(samples) <= 1 && (pool = false)  # as R, a single sample is never pooled
+    if pool === true
+        rawsources === nothing || throw(ArgumentError("qualityMode=:raw cannot be combined with pool=true"))
+        samples = [first(pool_dereps(samples))]  # R learns on the pooled uniques
+    end
+    pseudo = pool === :pseudo
+    pseudo && pseudo_priors(DadaResult[], pseudoPrevalence, pseudoAbundance)  # validate early
     caches = [InferenceCache(sample; useKmers, cacheAlignments, threaded) for sample in samples]
     # R: qmax = ceiling(max(quals)); models are widened to cover it. Raw
     # counting needs the highest original quality as well.
@@ -532,35 +547,42 @@ function learn_errors_upstream(samples::AbstractVector{Derep}; maxIter=10, span=
     widen(err, q) = size(err.rates, 2) >= q + 1 ? err :
         ErrorModel(hcat(err.rates, repeat(err.rates[:, end:end], 1, q + 1 - size(err.rates, 2))),
                    Val(:unchecked))  # the first model does not sum to one
-    function round_trans(errs, maxClusters)
+    function round_trans(errs, maxClusters, round_priors)
         results = dada_each(samples, errs; omegaC, threaded, _caches=caches, maxClusters, useKmers,
-                            cacheAlignments, kwargs...)
+                            cacheAlignments, priors=round_priors, kwargs...)
         converged = all(r -> r.converged, results)
-        rawsources === nothing && return accumulate_transitions(results), converged
+        rawsources === nothing && return accumulate_transitions(results), converged, results
         trans = zeros(Int, 16, maximum(e -> size(e.rates, 2), errs))
-        raw_transitions!(trans, samples, results, rawsources, caches; threaded), converged
+        raw_transitions!(trans, samples, results, rawsources, caches; threaded), converged, results
     end
     # Initialisation: maximal error rates and a single partition per sample.
     initial = [ErrorModel(ones(16, max(41, q + 1)), Val(:unchecked)) for q in qmax]
-    trans, _ = round_trans(initial, 1)
+    trans, _, _ = round_trans(initial, 1, collect(String, priors))
     err = r_loess_errors(trans, nothing; span)
     rates = copy(err.rates)
     rates[[1, 6, 11, 16], :] .= 1.0
     err = ErrorModel(rates, Val(:unchecked))
     previous = ErrorModel[]; history = Float64[]
     converged = false; inference_converged = false
-    for _ in 1:maxIter
+    extra_priors = String[]  # pseudo-priors from the previous round
+    round = 0
+    while true
+        round += 1
         push!(previous, err)
-        trans, inference_converged = round_trans([widen(err, q) for q in qmax], 0)
+        trans, inference_converged, results =
+            round_trans([widen(err, q) for q in qmax], 0, vcat(collect(String, priors), extra_priors))
         updated = r_loess_errors(trans, nothing; span)
         push!(history, size(updated.rates) == size(err.rates) ?
             maximum(abs(log(max(updated.rates[i],1e-300)) - log(max(err.rates[i],1e-300)))
                     for i in eachindex(err.rates)) : Inf)
         err = updated
-        # R stops when a model repeats exactly, or after MAX_CONSIST rounds.
-        if any(e -> e.rates == err.rates, previous)
-            converged = true; break
+        # R stops when a model repeats exactly, or after MAX_CONSIST rounds;
+        # with pseudo-pooling, not before the second round.
+        repeated = any(e -> e.rates == err.rates, previous)
+        if (repeated || round >= maxIter) && (!pseudo || round >= 2)
+            converged = repeated; break
         end
+        pseudo && (extra_priors = pseudo_priors(results, pseudoPrevalence, pseudoAbundance))
     end
     training_reads = sum(sum(s.counts) for s in samples)
     training_bases = sum(sum(length(s.sequences[i])*s.counts[i] for i in eachindex(s.sequences))
@@ -607,6 +629,9 @@ error rates and one partition per sample, self-transitions set to one in that
 first model, then up to `maxIter=10` rounds of inference (`omegaC=0`) and
 DADA2's `loessErrfun` that stop when a model repeats exactly. With the same
 input it gives R's error model, to rounding. Other keywords go to `dada`.
+As in R, `pool=true` learns on the pooled uniques of the samples and
+`pool=:pseudo` adds, from the second round on, the ASVs found in at least
+`pseudoPrevalence` samples of the previous round as priors.
 
 Transitions are counted at the mean qualities of the dereplicated reads, as
 R. For FASTQ inputs, `qualityMode=:raw` counts them at the original read
@@ -650,6 +675,8 @@ function learnErrors(paths::AbstractVector{<:AbstractString}; qualityMode=:mean,
                      nbases::Integer=100_000_000, kwargs...)
     qualityMode in (:mean, :raw) || throw(ArgumentError("qualityMode must be :mean or :raw"))
     check_learner_options(kwargs)
+    qualityMode == :raw && get(kwargs, :pool, false) === true &&
+        throw(ArgumentError("qualityMode=:raw cannot be combined with pool=true"))
     samples, sources, rawqmax = upstream_training_data(paths, nbases)
     qualityMode == :mean && return learn_errors_upstream(samples; kwargs...)
     learn_errors_upstream(samples; rawsources=sources, rawqmax, kwargs...)

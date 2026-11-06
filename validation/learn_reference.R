@@ -42,5 +42,14 @@ for(name in names(budgets)) {
   writeLines(c(format(budgets[[name]], scientific=FALSE), length(e$err_in)),
              file.path(out, paste0(name, "_info.txt")))
 }
+# Pooled and pseudo-pooled learning on all three samples.
+for(mode in c("pooled", "pseudo")) {
+  e <- learnErrors(files, pool=if(mode == "pooled") TRUE else "pseudo", multithread=FALSE, verbose=FALSE)
+  write.table(matrix(sprintf("%.17g", e$err_out), 16), file.path(out, paste0(mode, "_err.tsv")),
+              sep="\t", quote=FALSE, row.names=FALSE, col.names=FALSE)
+  write.table(e$trans, file.path(out, paste0(mode, "_trans.tsv")), sep="\t",
+              row.names=FALSE, col.names=FALSE)
+  writeLines(c(format(1e8, scientific=FALSE), length(e$err_in)), file.path(out, paste0(mode, "_info.txt")))
+}
 writeLines(c(paste("R", getRversion()), paste("dada2", packageVersion("dada2"))),
            file.path(out, "versions.txt"))

@@ -101,7 +101,7 @@ once and `pool=:pseudo` repeats inference with the ASVs found in at least
 
 `learnErrors` reads whole files (or takes whole dereplicated samples) until
 it has more than `nbases` (100,000,000) bases and runs at most `maxIter=10`
-rounds, as R. For FASTQ
+rounds, as R; `pool=true` and `pool=:pseudo` are accepted as in R. For FASTQ
 inputs, `qualityMode=:raw` counts transitions at the original read qualities
 instead of the mean qualities of each unique sequence: this is a Julia
 extension, not validated (see [Fidelity](#fidelity-to-dada2-r)).
